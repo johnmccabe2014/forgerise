@@ -27,7 +27,7 @@ public sealed class SessionsController : ControllerBase
 
     private static SessionDto ToDto(Session s) =>
         new(s.Id, s.TeamId, s.ScheduledAt, s.DurationMinutes, s.Type, s.Location, s.Focus,
-            s.ReviewNotes, s.ReviewedAt, s.CreatedAt);
+            s.ReviewNotes, s.ReviewedAt, s.CreatedAt, s.SourceSessionPlanId);
 
     [HttpGet]
     public async Task<IActionResult> List(Guid teamId, CancellationToken ct)

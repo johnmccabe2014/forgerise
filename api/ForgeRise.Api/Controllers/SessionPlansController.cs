@@ -225,6 +225,7 @@ public sealed class SessionPlansController : ControllerBase
             ReviewNotes = notes,
             CreatedByUserId = actor,
             CreatedAt = now,
+            SourceSessionPlanId = plan.Id,
         };
         _db.Sessions.Add(session);
 

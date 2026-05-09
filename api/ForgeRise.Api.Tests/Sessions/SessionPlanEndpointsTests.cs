@@ -204,6 +204,7 @@ public class SessionPlanEndpointsTests : IClassFixture<ForgeRiseFactory>
         Assert.Equal("Lineout", session.Focus);
         Assert.NotNull(session.ReviewNotes);
         Assert.Contains("Adopted from session plan", session.ReviewNotes!);
+        Assert.Equal(plan.Id, session.SourceSessionPlanId);
 
         // Adopting twice is rejected.
         var again = await client.PostAsJsonAsync(

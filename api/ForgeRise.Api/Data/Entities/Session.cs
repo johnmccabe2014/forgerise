@@ -32,4 +32,11 @@ public sealed class Session
     public Guid CreatedByUserId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
+
+    /// <summary>
+    /// If this session was created by adopting a <see cref="SessionPlan"/>,
+    /// the originating plan id is captured here so the UI can link both
+    /// directions and surface "from plan" badges.
+    /// </summary>
+    public Guid? SourceSessionPlanId { get; set; }
 }

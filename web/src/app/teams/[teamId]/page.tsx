@@ -46,6 +46,7 @@ interface SessionDto {
   location: string | null;
   focus: string | null;
   reviewedAt: string | null;
+  sourceSessionPlanId?: string | null;
 }
 
 export const dynamic = "force-dynamic";
@@ -339,6 +340,14 @@ export default async function TeamDetailPage({
                           {s.focus && (
                             <p className="text-sm text-slate/80 truncate">
                               Focus: {s.focus}
+                            </p>
+                          )}
+                          {s.sourceSessionPlanId && (
+                            <p
+                              data-testid={`session-from-plan-${s.id}`}
+                              className="mt-1 inline-block rounded-pill bg-rise-copper/10 text-rise-copper px-2 py-0.5 text-xs"
+                            >
+                              From plan
                             </p>
                           )}
                         </div>

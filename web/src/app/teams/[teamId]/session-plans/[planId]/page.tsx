@@ -165,6 +165,17 @@ export default async function SessionPlanDetailPage({
                 className="rounded-pill bg-readiness-ready/15 text-readiness-ready px-3 py-1 text-xs font-medium"
               >
                 ✓ Adopted {fmtWhen(plan.adoptedAt)}
+                {plan.adoptedSessionId && (
+                  <>
+                    {" — "}
+                    <Link
+                      href={`/teams/${teamId}/sessions/${plan.adoptedSessionId}`}
+                      className="underline"
+                    >
+                      open session
+                    </Link>
+                  </>
+                )}
               </p>
             ) : (
               <AdoptPlanForm teamId={teamId} planId={plan.id} />

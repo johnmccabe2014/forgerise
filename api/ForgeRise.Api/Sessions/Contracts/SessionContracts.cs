@@ -31,7 +31,8 @@ public sealed class ReviewSessionRequest
 public sealed record SessionDto(
     Guid Id, Guid TeamId, DateTimeOffset ScheduledAt, int DurationMinutes,
     SessionType Type, string? Location, string? Focus,
-    string? ReviewNotes, DateTimeOffset? ReviewedAt, DateTimeOffset CreatedAt);
+    string? ReviewNotes, DateTimeOffset? ReviewedAt, DateTimeOffset CreatedAt,
+    Guid? SourceSessionPlanId = null);
 
 public sealed class AttendanceUpsertItem
 {
