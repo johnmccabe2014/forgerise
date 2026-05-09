@@ -177,73 +177,97 @@ export default async function MePage() {
                   </div>
                   <div className="border-t border-slate/10 pt-4">
                     <h3 className="font-heading text-deep-charcoal mb-3">
-                      Recent check-ins
+                      Recent activity
                     </h3>
-                    {history.length === 0 ? (
-                      <p className="text-sm text-slate">
-                        No check-ins yet. Submit one above to see it here.
-                      </p>
-                    ) : (
-                      <ul className="divide-y divide-slate/10">
-                        {history.map((h) => (
-                          <li
-                            key={h.id}
-                            className="flex items-center justify-between gap-3 py-2"
-                          >
-                            <span className="text-sm text-deep-charcoal">
-                              {fmtDate(h.asOf)}
-                            </span>
-                            <ReadinessBadge
-                              category={CATEGORY_TO_KEY[h.category] ?? "monitor"}
-                            />
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div className="border-t border-slate/10 pt-4">
-                    <h3 className="font-heading text-deep-charcoal mb-3">
-                      My recent reports
-                    </h3>
-                    {myIncidents.length === 0 ? (
-                      <p className="text-sm text-slate">
-                        You haven&apos;t reported anything yet.
-                      </p>
-                    ) : (
-                      <ul
-                        data-testid={`my-incidents-${p.playerId}`}
-                        className="divide-y divide-slate/10"
-                      >
-                        {myIncidents.map((inc) => (
-                          <li key={inc.id} className="py-2 space-y-0.5">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-sm text-deep-charcoal">
-                                {fmtWhen(inc.occurredAt)} ·{" "}
-                                {SEVERITY_LABELS[inc.severity] ?? "Low"}
-                              </span>
-                              {inc.acknowledgedAt ? (
-                                <span className="rounded-pill bg-readiness-ready/15 text-readiness-ready px-2 py-0.5 text-xs">
-                                  Acknowledged
+                    {(() => {
+                      type TimelineItem =
+                        | { kind: "checkin"; at: string; row: MyCheckInDto }
+                        | { kind: "incident"; at: string; row: MyIncidentDto };
+                      const items: TimelineItem[] = [
+                        ...history.map((h) => ({
+                          kind: "checkin" as const,
+                          at: h.asOf,
+                          row: h,
+                        })),
+                        ...myIncidents.map((inc) => ({
+                          kind: "incident" as const,
+                          at: inc.occurredAt,
+                          row: inc,
+                        })),
+                      ].sort(
+                        (a, b) =>
+                          new Date(b.at).getTime() - new Date(a.at).getTime(),
+                      );
+                      if (items.length === 0) {
+                        return (
+                          <p className="text-sm text-slate">
+                            No activity yet. Submit a check-in above to see
+                            it here.
+                          </p>
+                        );
+                      }
+                      return (
+                        <ul
+                          data-testid={`my-timeline-${p.playerId}`}
+                          className="divide-y divide-slate/10"
+                        >
+                          {items.map((item) =>
+                            item.kind === "checkin" ? (
+                              <li
+                                key={`c-${item.row.id}`}
+                                className="flex items-center justify-between gap-3 py-2"
+                                data-testid={`timeline-checkin-${item.row.id}`}
+                              >
+                                <span className="text-sm text-deep-charcoal">
+                                  {fmtDate(item.row.asOf)} · Check-in
                                 </span>
-                              ) : (
-                                <span className="rounded-pill bg-readiness-monitor/15 text-readiness-monitor px-2 py-0.5 text-xs">
-                                  Awaiting review
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-sm text-slate">{inc.summary}</p>
-                            {inc.acknowledgedAt && (
-                              <p className="text-xs text-slate">
-                                Acknowledged {fmtWhen(inc.acknowledgedAt)}
-                                {inc.acknowledgedByDisplayName
-                                  ? ` by ${inc.acknowledgedByDisplayName}`
-                                  : ""}
-                              </p>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                                <ReadinessBadge
+                                  category={
+                                    CATEGORY_TO_KEY[item.row.category] ??
+                                    "monitor"
+                                  }
+                                />
+                              </li>
+                            ) : (
+                              <li
+                                key={`i-${item.row.id}`}
+                                className="py-2 space-y-0.5"
+                                data-testid={`timeline-incident-${item.row.id}`}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-sm text-deep-charcoal">
+                                    {fmtWhen(item.row.occurredAt)} · Report ·{" "}
+                                    {SEVERITY_LABELS[item.row.severity] ??
+                                      "Low"}
+                                  </span>
+                                  {item.row.acknowledgedAt ? (
+                                    <span className="rounded-pill bg-readiness-ready/15 text-readiness-ready px-2 py-0.5 text-xs">
+                                      Acknowledged
+                                    </span>
+                                  ) : (
+                                    <span className="rounded-pill bg-readiness-monitor/15 text-readiness-monitor px-2 py-0.5 text-xs">
+                                      Awaiting review
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-slate">
+                                  {item.row.summary}
+                                </p>
+                                {item.row.acknowledgedAt && (
+                                  <p className="text-xs text-slate">
+                                    Acknowledged{" "}
+                                    {fmtWhen(item.row.acknowledgedAt)}
+                                    {item.row.acknowledgedByDisplayName
+                                      ? ` by ${item.row.acknowledgedByDisplayName}`
+                                      : ""}
+                                  </p>
+                                )}
+                              </li>
+                            ),
+                          )}
+                        </ul>
+                      );
+                    })()}
                   </div>
                   <div className="border-t border-slate/10 pt-4">
                     <h3 className="font-heading text-deep-charcoal mb-3">
