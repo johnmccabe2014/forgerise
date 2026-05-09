@@ -56,4 +56,4 @@ public sealed record IncidentRawDto(
     string? Notes,
     DateTimeOffset? RawPurgedAt);
 
-public sealed record AuditEntryDto(Guid Id, Guid ActorUserId, Guid PlayerId, Guid? SubjectId, WelfareAuditAction Action, DateTimeOffset At);
+public sealed record AuditEntryDto(Guid Id, Guid ActorUserId, Guid PlayerId, Guid? SubjectId, WelfareAuditAction Action, DateTimeOffset At, string? ActorDisplayName = null, string? PlayerDisplayName = null);

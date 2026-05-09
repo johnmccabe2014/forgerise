@@ -106,6 +106,10 @@ public class WelfareEndpointsTests : IClassFixture<ForgeRiseFactory>
         auditResp.EnsureSuccessStatusCode();
         var audit = await auditResp.Content.ReadFromJsonAsync<List<AuditEntryDto>>();
         Assert.Contains(audit!, a => a.Action == WelfareAuditAction.ReadRawCheckIn && a.SubjectId == summary.Id);
+        // Display names are joined in for the coach-readable audit page.
+        var raw = Assert.Single(audit!, a => a.Action == WelfareAuditAction.ReadRawCheckIn);
+        Assert.False(string.IsNullOrEmpty(raw.ActorDisplayName));
+        Assert.False(string.IsNullOrEmpty(raw.PlayerDisplayName));
     }
 
     [Fact]

@@ -165,6 +165,12 @@ export default async function TeamDetailPage({
             >
               Drill preferences →
             </Link>
+            <Link
+              href={`/teams/${team.data.id}/welfare/audit`}
+              className="text-rise-copper hover:underline"
+            >
+              Welfare audit log →
+            </Link>
           </p>
         </div>
 
