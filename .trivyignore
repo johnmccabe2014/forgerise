@@ -2,6 +2,8 @@
 # Format: one CVE/GHSA ID per line. Optionally `<id> exp:YYYY-MM-DD` to expire.
 #
 # IMPORTANT: every entry MUST link to a tracking issue and have an expiry.
-#
-# (currently empty — Next 16 + React 19 upgrade on 2026-05-09 cleared the
-#  Next 14 picomatch and Next.js CVEs that previously lived here.)
+
+# picomatch 4.0.3 is still vendored inside next/dist/compiled/picomatch in
+# Next 16 (verified 2026-05-09). Build-time-only file matcher, never reaches
+# the request path. Cannot be overridden by pnpm. Revisit when Next bumps it.
+CVE-2026-33671 exp:2026-09-01
