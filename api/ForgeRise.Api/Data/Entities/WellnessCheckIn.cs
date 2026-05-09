@@ -12,8 +12,15 @@ public class WellnessCheckIn
     public Guid PlayerId { get; set; }
     public Player? Player { get; set; }
 
-    /// <summary>The user (coach) who recorded the check-in.</summary>
+    /// <summary>The user (coach or self) who recorded the check-in.</summary>
     public Guid RecordedByUserId { get; set; }
+
+    /// <summary>
+    /// True when the check-in was submitted by the player themselves via the
+    /// self-service endpoint, false when a coach recorded it on their behalf.
+    /// Used for audit/provenance — does not change category derivation.
+    /// </summary>
+    public bool SubmittedBySelf { get; set; }
 
     public DateTimeOffset AsOf { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

@@ -19,6 +19,8 @@ public sealed class AppDbContext : DbContext
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<SessionPlan> SessionPlans => Set<SessionPlan>();
+    public DbSet<PlayerLink> PlayerLinks => Set<PlayerLink>();
+    public DbSet<PlayerInvite> PlayerInvites => Set<PlayerInvite>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -167,6 +169,33 @@ public sealed class AppDbContext : DbContext
                 .HasForeignKey(x => x.TeamId)
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.TeamId, x.GeneratedAt });
+        });
+
+        b.Entity<PlayerLink>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.PlayerId, x.UserId }).IsUnique();
+            e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.Player)
+                .WithMany()
+                .HasForeignKey(x => x.PlayerId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<PlayerInvite>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Code).HasMaxLength(64).IsRequired();
+            e.HasIndex(x => x.Code).IsUnique();
+            e.HasIndex(x => x.PlayerId);
+            e.HasOne(x => x.Player)
+                .WithMany()
+                .HasForeignKey(x => x.PlayerId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

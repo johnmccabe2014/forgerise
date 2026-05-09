@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { ReadinessBadge } from "@/components/ReadinessBadge";
 import {
+  PlayerInvitePanel,
+  type PlayerInviteRow,
+} from "@/components/PlayerInvitePanel";
+import {
   attendanceStatusLabel,
   sessionTypeLabel,
 } from "@/lib/sessionLabels";
@@ -118,17 +122,21 @@ export default async function PlayerProfilePage({
   }
   const player = playerResp.data;
 
-  const [attendanceResp, checkinsResp, incidentsResp] = await Promise.all([
-    serverFetchApi<AttendanceRowDto[]>(
-      `/teams/${teamId}/players/${playerId}/attendance`,
-    ),
-    serverFetchApi<CheckInSummaryDto[]>(
-      `/teams/${teamId}/players/${playerId}/checkins`,
-    ),
-    serverFetchApi<IncidentSummaryDto[]>(
-      `/teams/${teamId}/players/${playerId}/incidents`,
-    ),
-  ]);
+  const [attendanceResp, checkinsResp, incidentsResp, invitesResp] =
+    await Promise.all([
+      serverFetchApi<AttendanceRowDto[]>(
+        `/teams/${teamId}/players/${playerId}/attendance`,
+      ),
+      serverFetchApi<CheckInSummaryDto[]>(
+        `/teams/${teamId}/players/${playerId}/checkins`,
+      ),
+      serverFetchApi<IncidentSummaryDto[]>(
+        `/teams/${teamId}/players/${playerId}/incidents`,
+      ),
+      serverFetchApi<PlayerInviteRow[]>(
+        `/teams/${teamId}/players/${playerId}/invites`,
+      ),
+    ]);
 
   const attendance =
     attendanceResp.ok && Array.isArray(attendanceResp.data)
@@ -142,6 +150,8 @@ export default async function PlayerProfilePage({
     incidentsResp.ok && Array.isArray(incidentsResp.data)
       ? incidentsResp.data
       : [];
+  const invites =
+    invitesResp.ok && Array.isArray(invitesResp.data) ? invitesResp.data : [];
 
   const summary = attendanceSummary(attendance);
   const latestCheckIn = checkins[0];
@@ -311,6 +321,23 @@ export default async function PlayerProfilePage({
               ))}
             </ul>
           )}
+        </section>
+
+        <section
+          aria-labelledby="invites-heading"
+          className="rounded-card bg-white p-4 shadow-soft space-y-3"
+        >
+          <h2
+            id="invites-heading"
+            className="font-heading text-xl text-deep-charcoal"
+          >
+            Player invite codes
+          </h2>
+          <PlayerInvitePanel
+            teamId={teamId}
+            playerId={playerId}
+            invites={invites}
+          />
         </section>
       </section>
     </main>

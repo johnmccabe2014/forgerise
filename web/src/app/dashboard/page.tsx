@@ -35,6 +35,9 @@ export default async function DashboardPage() {
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center justify-between">
           <p className="font-heading text-forge-navy">ForgeRise</p>
           <div className="flex items-center gap-4">
+            <Link href="/me" className="text-sm text-slate underline">
+              My profile
+            </Link>
             <span className="text-sm text-slate">{me.data.displayName}</span>
             <LogoutButton />
           </div>

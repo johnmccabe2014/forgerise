@@ -8,6 +8,7 @@ public enum WelfareAuditAction
     PurgeRawIncident,
     DeleteCheckIn,
     DeleteIncident,
+    SelfSubmitCheckIn,
 }
 
 /// <summary>
