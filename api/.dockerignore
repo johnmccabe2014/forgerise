@@ -1,0 +1,12 @@
+**/bin
+**/obj
+**/.vs
+**/.idea
+**/*.user
+**/*.suo
+.env
+.env.*
+!.env.example
+*.md
+.vscode
+node_modules

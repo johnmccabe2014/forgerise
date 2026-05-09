@@ -26,46 +26,42 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        component: [web, api]
+        include:
+          # web image is built from the repo root (needs pnpm-lock.yaml + workspace).
+          - component: web
+            context: .
+            dockerfile: web/Dockerfile
+          - component: api
+            context: api
+            dockerfile: api/Dockerfile
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Skip if Dockerfile missing (iter1 placeholder)
-        id: check
-        run: |
-          if [ -f "${{ matrix.component }}/Dockerfile" ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::${{ matrix.component }}/Dockerfile not yet present — skipping build"
-          fi
-
       - name: Set up Buildx
-        if: steps.check.outputs.exists == 'true'
         uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
 
       - name: Log in to GHCR
-        if: steps.check.outputs.exists == 'true' && github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build (no push)
-        if: steps.check.outputs.exists == 'true'
+      - name: Build (load locally for scan)
         uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
         with:
-          context: ${{ matrix.component }}
-          file: ${{ matrix.component }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: false
           load: true
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.component }}:${{ github.sha }}
 
       - name: Trivy image scan
-        if: steps.check.outputs.exists == 'true'
         uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # 0.30.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.component }}:${{ github.sha }}
@@ -74,20 +70,27 @@ jobs:
           ignore-unfixed: true
 
       - name: Generate SBOM (Syft)
-        if: steps.check.outputs.exists == 'true'
         uses: anchore/sbom-action@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.7
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.component }}:${{ github.sha }}
           format: spdx-json
           output-file: ${{ matrix.component }}-sbom.spdx.json
 
+      - name: Upload SBOM
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: sbom-${{ matrix.component }}-${{ github.sha }}
+          path: ${{ matrix.component }}-sbom.spdx.json
+          retention-days: 30
+
       - name: Push (only after scans pass, never on PR)
-        if: steps.check.outputs.exists == 'true' && github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
         with:
-          context: ${{ matrix.component }}
-          file: ${{ matrix.component }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
+          cache-from: type=gha,scope=${{ matrix.component }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.component }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.component }}:latest

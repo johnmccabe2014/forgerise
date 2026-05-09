@@ -94,5 +94,4 @@ jobs:
         uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
         with:
           recursive: true
-          ignore: DL3008,DL3018 # pin notes — strictness raised in Phase 2
-        continue-on-error: true # no Dockerfiles yet in iter1; do not fail empty
+          ignore: DL3008,DL3018 # apt/apk version pins handled per-image

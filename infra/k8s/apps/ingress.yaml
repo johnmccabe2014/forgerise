@@ -1,0 +1,38 @@
+# ForgeRise Ingress — Traefik (k3s default) + cert-manager (letsencrypt-prod).
+# Browser ──► ${PUBLIC_HOST} ──► forgerise-web (Next).
+# Same-origin: the Next /api/proxy/[...path] handler forwards to forgerise-api in-cluster.
+#
+# Variables substituted by .github/workflows/deploy.yml:
+#   ${NAMESPACE}      forgerise-{dev|staging|prod}
+#   ${PUBLIC_HOST}    forgerise.cloudproject.dev | staging.forgerise.cloudproject.dev | dev.forgerise.cloudproject.dev
+#   ${TLS_ISSUER}     letsencrypt-prod (or letsencrypt-staging on dev)
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: forgerise
+  namespace: ${NAMESPACE}
+  annotations:
+    cert-manager.io/cluster-issuer: ${TLS_ISSUER}
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    # Enforce HTTPS — Traefik redirect middleware (configured cluster-side as
+    # `default-headers@kubernetescrd` and `redirect-https@kubernetescrd`).
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - ${PUBLIC_HOST}
+      secretName: forgerise-tls
+  rules:
+    - host: ${PUBLIC_HOST}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forgerise-web
+                port:
+                  number: 80

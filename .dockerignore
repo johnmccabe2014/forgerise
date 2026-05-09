@@ -1,0 +1,18 @@
+# Root .dockerignore for builds that use the repo root as context (web image).
+.git
+.github
+.copilot
+docs
+infra
+api/bin
+api/obj
+**/node_modules
+web/.next
+web/.next/cache
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+.vscode
+.idea
+coverage

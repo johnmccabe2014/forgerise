@@ -1,0 +1,123 @@
+# ForgeRise Web — Deployment + Service.
+# Variables substituted by .github/workflows/deploy.yml via `envsubst`:
+#   ${NAMESPACE}      forgerise-{dev|staging|prod}
+#   ${IMAGE_TAG}      git sha of the build
+#   ${IMAGE_REGISTRY} ghcr.io/<owner>/<repo>-web
+#   ${REPLICAS}       2 (prod) | 1 (dev/staging)
+#   ${API_INTERNAL_URL} http://forgerise-api.<namespace>.svc.cluster.local
+#   ${PUBLIC_HOST}    e.g. forgerise.cloudproject.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forgerise-web
+  namespace: ${NAMESPACE}
+  labels:
+    app.kubernetes.io/name: forgerise-web
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: forgerise
+spec:
+  replicas: ${REPLICAS}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: forgerise-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: forgerise-web
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: forgerise
+      annotations:
+        forgerise.io/revision: "${IMAGE_TAG}"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: ${IMAGE_REGISTRY}:${IMAGE_TAG}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+            - name: HOSTNAME
+              value: "0.0.0.0"
+            # The Next /api/proxy/[...path] route uses this to reach the API
+            # in-cluster. Browser traffic still goes through the proxy.
+            - name: NEXT_PUBLIC_API_BASE_URL
+              value: ${API_INTERNAL_URL}
+            - name: NEXT_PUBLIC_APP_NAME
+              value: ForgeRise
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /app/.next/cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgerise-web
+  namespace: ${NAMESPACE}
+  labels:
+    app.kubernetes.io/name: forgerise-web
+    app.kubernetes.io/part-of: forgerise
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: forgerise-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
