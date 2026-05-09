@@ -13,4 +13,6 @@ public sealed class Team
     public DateTimeOffset? DeletedAt { get; set; }
 
     public ICollection<Player> Players { get; set; } = new List<Player>();
+    public ICollection<TeamMembership> Memberships { get; set; } = new List<TeamMembership>();
+    public ICollection<TeamInvite> Invites { get; set; } = new List<TeamInvite>();
 }

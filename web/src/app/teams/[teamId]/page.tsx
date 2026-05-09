@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { PlayerAddForm } from "@/components/PlayerAddForm";
 import { PlayerRow } from "@/components/PlayerRow";
+import { CoachesPanel, type CoachRow } from "@/components/CoachesPanel";
+import { InvitesPanel, type InviteRow } from "@/components/InvitesPanel";
 import { sessionTypeLabel } from "@/lib/sessionLabels";
 import { classifyPosition } from "@/lib/rugby";
 
@@ -12,6 +14,14 @@ interface TeamDto {
   code: string;
   createdAt: string;
   playerCount: number;
+  myRole?: "owner" | "coach";
+  coachCount?: number;
+}
+
+interface MeDto {
+  id: string;
+  email: string;
+  displayName: string;
 }
 
 interface PlayerDto {
@@ -50,6 +60,10 @@ export default async function TeamDetailPage({
     redirect("/dashboard");
   }
 
+  const me = await serverFetchApi<MeDto>("/auth/me");
+  const myUserId = me.ok ? me.data.id : "";
+  const myRole: "owner" | "coach" = team.data.myRole ?? "owner";
+
   const players = await serverFetchApi<PlayerDto[]>(
     `/teams/${params.teamId}/players`,
   );
@@ -61,6 +75,22 @@ export default async function TeamDetailPage({
   const sessions =
     sessionsResp.ok && Array.isArray(sessionsResp.data)
       ? sessionsResp.data.slice(0, 10)
+      : [];
+
+  const coachesResp = await serverFetchApi<CoachRow[]>(
+    `/teams/${params.teamId}/coaches`,
+  );
+  const coaches =
+    coachesResp.ok && Array.isArray(coachesResp.data) ? coachesResp.data : [];
+
+  // Invites are owner-only — skip the round-trip for coaches (the API would 403).
+  const invitesResp =
+    myRole === "owner"
+      ? await serverFetchApi<InviteRow[]>(`/teams/${params.teamId}/invites`)
+      : null;
+  const invites =
+    invitesResp && invitesResp.ok && Array.isArray(invitesResp.data)
+      ? invitesResp.data
       : [];
 
   return (
@@ -85,8 +115,48 @@ export default async function TeamDetailPage({
           <p className="text-sm text-slate">
             code: {team.data.code} · {team.data.playerCount} player
             {team.data.playerCount === 1 ? "" : "s"}
+            {typeof team.data.coachCount === "number" && (
+              <>
+                {" · "}
+                {team.data.coachCount} coach
+                {team.data.coachCount === 1 ? "" : "es"}
+              </>
+            )}
+            {" · "}
+            <span className="text-rise-copper font-medium">
+              {myRole === "owner" ? "You: Owner" : "You: Coach"}
+            </span>
           </p>
         </div>
+
+        <section aria-labelledby="coaches-heading" className="space-y-3">
+          <h2
+            id="coaches-heading"
+            className="font-heading text-xl text-deep-charcoal"
+          >
+            Coaches
+          </h2>
+          <CoachesPanel
+            teamId={team.data.id}
+            myRole={myRole}
+            myUserId={myUserId}
+            coaches={coaches}
+          />
+          {myRole === "owner" && (
+            <div className="rounded-card bg-white p-4 shadow-soft space-y-3">
+              <div>
+                <h3 className="font-heading text-sm text-forge-navy">
+                  Invite codes
+                </h3>
+                <p className="text-xs text-slate">
+                  Share an invite code so another coach can join this team.
+                  Codes expire after 7 days.
+                </p>
+              </div>
+              <InvitesPanel teamId={team.data.id} invites={invites} />
+            </div>
+          )}
+        </section>
 
         <section aria-labelledby="add-player-heading" className="space-y-3">
           <h2

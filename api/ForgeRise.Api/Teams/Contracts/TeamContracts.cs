@@ -18,7 +18,35 @@ public sealed class UpdateTeamRequest
     public string Name { get; init; } = string.Empty;
 }
 
-public sealed record TeamDto(Guid Id, string Name, string Code, DateTimeOffset CreatedAt, int PlayerCount);
+public sealed record TeamDto(Guid Id, string Name, string Code, DateTimeOffset CreatedAt, int PlayerCount)
+{
+    /// <summary>Role of the calling user on this team. "owner" or "coach".</summary>
+    public string MyRole { get; init; } = "owner";
+
+    /// <summary>Total members on this team (owners + coaches).</summary>
+    public int CoachCount { get; init; } = 1;
+}
+
+public sealed record TeamCoachDto(
+    Guid UserId,
+    string DisplayName,
+    string Email,
+    string Role,
+    DateTimeOffset JoinedAt);
+
+public sealed record TeamInviteDto(
+    Guid Id,
+    string Code,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset? ConsumedAt,
+    DateTimeOffset? RevokedAt);
+
+public sealed class JoinTeamRequest
+{
+    [Required, StringLength(64, MinimumLength = 6)]
+    public string Code { get; init; } = string.Empty;
+}
 
 public sealed class CreatePlayerRequest
 {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { LogoutButton } from "@/components/LogoutButton";
+import { JoinTeamForm } from "@/components/JoinTeamForm";
 
 export const metadata = { title: "Dashboard — ForgeRise" };
 export const dynamic = "force-dynamic";
@@ -16,6 +17,8 @@ interface TeamDto {
   id: string;
   name: string;
   code: string;
+  myRole?: "owner" | "coach";
+  coachCount?: number;
 }
 
 export default async function DashboardPage() {
@@ -78,7 +81,23 @@ export default async function DashboardPage() {
                     >
                       <div>
                         <p className="font-heading text-forge-navy">{t.name}</p>
-                        <p className="text-xs text-slate">code: {t.code}</p>
+                        <p className="text-xs text-slate">
+                          code: {t.code}
+                          {t.myRole && (
+                            <>
+                              {" · "}
+                              <span
+                                className={
+                                  t.myRole === "owner"
+                                    ? "text-rise-copper font-medium"
+                                    : "text-slate"
+                                }
+                              >
+                                {t.myRole === "owner" ? "Owner" : "Coach"}
+                              </span>
+                            </>
+                          )}
+                        </p>
                       </div>
                       <span aria-hidden className="text-slate">
                         →
@@ -95,6 +114,22 @@ export default async function DashboardPage() {
               </Link>
             </>
           )}
+        </section>
+
+        <section aria-labelledby="join-heading" className="space-y-3">
+          <h2
+            id="join-heading"
+            className="font-heading text-xl text-deep-charcoal"
+          >
+            Join a team
+          </h2>
+          <div className="rounded-card bg-white p-4 shadow-soft">
+            <p className="text-sm text-slate mb-3">
+              Got an invite code from another coach? Paste it here to join
+              their team.
+            </p>
+            <JoinTeamForm />
+          </div>
         </section>
       </section>
     </main>

@@ -2,6 +2,7 @@ using ForgeRise.Api.Auth;
 using ForgeRise.Api.Data;
 using ForgeRise.Api.Data.Entities;
 using ForgeRise.Api.Teams.Contracts;
+using ForgeRise.Api.WelfareModule;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,15 +27,7 @@ public sealed class PlayersController : ControllerBase
         new(p.Id, p.TeamId, p.DisplayName, p.JerseyNumber, p.BirthYear, p.Position, p.IsActive, p.CreatedAt);
 
     private async Task<(Team? team, IActionResult? error)> LoadOwnedTeam(Guid teamId, CancellationToken ct)
-    {
-        var userId = User.TryGetUserId();
-        if (userId is null) return (null, Unauthorized());
-
-        var team = await _db.Teams.FirstOrDefaultAsync(t => t.Id == teamId, ct);
-        if (team is null) return (null, NotFound());
-        if (team.OwnerUserId != userId) return (null, Forbid());
-        return (team, null);
-    }
+        => await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
 
     [HttpGet]
     public async Task<IActionResult> List(Guid teamId, CancellationToken ct)

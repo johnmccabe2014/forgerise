@@ -10,6 +10,8 @@ public sealed class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Team> Teams => Set<Team>();
+    public DbSet<TeamMembership> TeamMemberships => Set<TeamMembership>();
+    public DbSet<TeamInvite> TeamInvites => Set<TeamInvite>();
     public DbSet<Player> Players => Set<Player>();
     public DbSet<WellnessCheckIn> WellnessCheckIns => Set<WellnessCheckIn>();
     public DbSet<IncidentReport> IncidentReports => Set<IncidentReport>();
@@ -51,6 +53,33 @@ public sealed class AppDbContext : DbContext
                 .HasForeignKey(x => x.OwnerUserId)
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => x.DeletedAt == null);
+        });
+
+        b.Entity<TeamMembership>(e =>
+        {
+            e.HasKey(x => x.Id);
+            // One row per (team,user) — a user can only be on a team once.
+            e.HasIndex(x => new { x.TeamId, x.UserId }).IsUnique();
+            e.HasOne(x => x.Team)
+                .WithMany(t => t.Memberships)
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<TeamInvite>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Code).HasMaxLength(64).IsRequired();
+            e.HasIndex(x => x.Code).IsUnique();
+            e.HasIndex(x => x.TeamId);
+            e.HasOne(x => x.Team)
+                .WithMany(t => t.Invites)
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<Player>(e =>
