@@ -13,5 +13,10 @@
     "lint": "pnpm -r --filter ./web lint",
     "typecheck": "pnpm -r --filter ./web typecheck",
     "test": "pnpm -r --filter ./web test"
+  },
+  "pnpm": {
+    "overrides": {
+      "cross-spawn": ">=7.0.6"
+    }
   }
 }

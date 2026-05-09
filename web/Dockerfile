@@ -2,7 +2,7 @@
 # ForgeRise Web — Next.js standalone build, non-root, multi-stage.
 # Build context: repository root (because pnpm-lock.yaml lives at the root).
 
-ARG NODE_TAG=20.18-alpine
+ARG NODE_TAG=22-alpine
 
 FROM node:${NODE_TAG} AS base
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
