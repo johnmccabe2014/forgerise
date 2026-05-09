@@ -1,51 +1,47 @@
-# --- General ---
-.DS_Store
-Thumbs.db
-*.log
-*.tmp
-.vscode/
-.idea/
 
-# --- Node / pnpm / Next.js ---
-node_modules/
-.pnpm-store/
-.next/
-out/
-dist/
-build/
-coverage/
-*.tsbuildinfo
-.eslintcache
-
+!.env.example
+!infra/k8s/secrets.example.yaml
 # --- .NET ---
-bin/
-obj/
-*.user
-*.suo
-TestResults/
-.vs/
-
+# --- Docker ---
 # --- Env / secrets ---
+# --- General ---
+# --- Kubernetes / infra (real values never committed) ---
+# --- Node / pnpm / Next.js ---
+# --- Tooling caches ---
+*.crt
+*.key
+*.kubeconfig
+*.local
+*.log
+*.pem
+*.pfx
+*.suo
+*.tmp
+*.tsbuildinfo
+*.user
+.DS_Store
+.cache/
 .env
 .env.*
-!.env.example
-*.pem
-*.key
-*.pfx
-*.crt
-
-# --- Docker ---
-*.local
-
-# --- Kubernetes / infra (real values never committed) ---
-infra/k8s/secrets.*.yaml
-!infra/k8s/secrets.example.yaml
-kubeconfig
-*.kubeconfig
-
-# --- Tooling caches ---
-.cache/
-.turbo/
+.eslintcache
+.idea/
+.next/
 .parcel-cache/
+.pnpm-store/
 .pytest_cache/
+.rendered/
+.turbo/
+.vs/
+.vscode/
+TestResults/
+Thumbs.db
 __pycache__/
+bin/
+build/
+coverage/
+dist/
+infra/k8s/secrets.*.yaml
+kubeconfig
+node_modules/
+obj/
+out/

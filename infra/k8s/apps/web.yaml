@@ -37,6 +37,10 @@ spec:
         forgerise.io/revision: "${IMAGE_TAG}"
     spec:
       automountServiceAccountToken: false
+      # GHCR images are private; the secret is created out-of-band by
+      # infra/scripts/create-ghcr-pull-secret.sh (once per namespace).
+      imagePullSecrets:
+        - name: ghcr-pull
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
