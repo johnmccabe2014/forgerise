@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
+import { IncidentAckButton } from "@/components/IncidentAckButton";
 
 interface TeamDto {
   id: string;
@@ -191,7 +192,14 @@ export default async function IncidentsHistoryPage({
                         : ""}
                     </p>
                   ) : (
-                    <p className="text-xs text-rise-copper">Needs review</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs text-rise-copper">Needs review</p>
+                      <IncidentAckButton
+                        teamId={teamId}
+                        playerId={i.playerId}
+                        incidentId={i.id}
+                      />
+                    </div>
                   )}
                 </li>
               );
