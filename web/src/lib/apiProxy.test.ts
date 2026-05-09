@@ -93,4 +93,22 @@ describe("proxyToApi", () => {
     const sent = init.headers as Headers;
     expect(sent.get("X-CSRF-Token")).toBeNull();
   });
+
+  it("returns a null body for 204 No Content (fetch spec forbids body on null-body status)", async () => {
+    const fetchMock = vi.mocked(global.fetch);
+    // Upstream NoContent — Kestrel sends 204 with no body, but Node fetch
+    // would still let us read an empty ArrayBuffer; our proxy must not
+    // forward that buffer or `new Response(buf, {status: 204})` throws.
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const req = makeReq({
+      method: "POST",
+      cookie: "fr_csrf=t; fr_at=a",
+      body: "",
+    });
+    const res = await proxyToApi(req, ["auth", "logout"]);
+
+    expect(res.status).toBe(204);
+    expect(res.body).toBeNull();
+  });
 });

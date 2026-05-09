@@ -93,7 +93,11 @@ export async function proxyToApi(
   }
 
   const body = await upstream.arrayBuffer();
-  return new NextResponse(body, {
+  // 204/205/304 are "null body status" per fetch spec; constructing a
+  // Response with any body (even an empty ArrayBuffer) throws TypeError.
+  const nullBodyStatus =
+    upstream.status === 204 || upstream.status === 205 || upstream.status === 304;
+  return new NextResponse(nullBodyStatus ? null : body, {
     status: upstream.status,
     headers: resHeaders,
   });
