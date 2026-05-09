@@ -1,6 +1,7 @@
 // ForgeRise landing — minimal brand sample, mobile-first.
 // Master prompt §5/§6: calm, modern, mobile-first, supportive.
 
+import Link from "next/link";
 import { ReadinessBadge } from "@/components/ReadinessBadge";
 
 export default function Home() {
@@ -16,6 +17,21 @@ export default function Home() {
         Save time, support player welfare, and make better training decisions —
         from minimal manual input.
       </p>
+
+      <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+        <Link
+          href="/register"
+          className="flex-1 inline-flex items-center justify-center rounded-lg bg-forge-navy px-5 py-3 text-white font-heading hover:opacity-90 transition"
+        >
+          Get started
+        </Link>
+        <Link
+          href="/login"
+          className="flex-1 inline-flex items-center justify-center rounded-lg border border-forge-navy px-5 py-3 text-forge-navy font-heading hover:bg-forge-navy hover:text-white transition"
+        >
+          Sign in
+        </Link>
+      </div>
 
       <section
         aria-label="Readiness categories preview"
