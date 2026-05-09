@@ -27,3 +27,11 @@ public static class TeamActivityKinds
     public const string IncidentSelfReported = "incident_self_reported";
     public const string InviteRedeemed = "invite_redeemed";
 }
+
+/// <summary>
+/// Per-coach unread state for the team activity feed.
+/// <see cref="UnreadCount"/> is capped at 99; UI shows "99+" beyond that.
+/// </summary>
+public sealed record TeamActivitySeenDto(
+    DateTimeOffset? LastSeenAt,
+    int UnreadCount);

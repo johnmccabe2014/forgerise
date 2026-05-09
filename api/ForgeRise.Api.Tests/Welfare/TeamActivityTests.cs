@@ -138,4 +138,62 @@ public class TeamActivityTests : IClassFixture<ForgeRiseFactory>
         var resp = await stranger.GetAsync($"/teams/{team.Id}/activity");
         Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
     }
+
+    [Fact]
+    public async Task Seen_starts_null_then_count_drops_to_zero_after_mark()
+    {
+        var coach = await AuthenticatedClient("coach-seen");
+        var player = await AuthenticatedClient("player-seen");
+        var team = await CreateTeam(coach, "Bears", $"bears-{Guid.NewGuid():n}".Substring(0, 12));
+        var roster = await AddPlayer(coach, team.Id, "Self Filer");
+
+        // Initial state — no events, no watermark.
+        var empty = await coach.GetFromJsonAsync<TeamActivitySeenDto>(
+            $"/teams/{team.Id}/activity/seen");
+        Assert.NotNull(empty);
+        Assert.Null(empty!.LastSeenAt);
+        Assert.Equal(0, empty.UnreadCount);
+
+        // Generate three player-driven events.
+        var invite = await CreateInvite(coach, team.Id, roster.Id);
+        (await player.PostAsJsonAsync("/player-invites/redeem", new { code = invite.Code })).EnsureSuccessStatusCode();
+        (await player.PostAsJsonAsync(
+            $"/me/players/{roster.Id}/checkins",
+            new { sleepHours = 7.5, sorenessScore = 2, moodScore = 4, stressScore = 2, fatigueScore = 2 }))
+            .EnsureSuccessStatusCode();
+        (await player.PostAsJsonAsync(
+            $"/me/players/{roster.Id}/incidents",
+            new { severity = (int)IncidentSeverity.Low, summary = "Tight calf" }))
+            .EnsureSuccessStatusCode();
+
+        var unread = await coach.GetFromJsonAsync<TeamActivitySeenDto>(
+            $"/teams/{team.Id}/activity/seen");
+        Assert.Equal(3, unread!.UnreadCount);
+        Assert.Null(unread.LastSeenAt);
+
+        // Mark seen — count returns to zero.
+        var mark = await coach.PostAsync($"/teams/{team.Id}/activity/seen", null);
+        mark.EnsureSuccessStatusCode();
+        var marked = (await mark.Content.ReadFromJsonAsync<TeamActivitySeenDto>())!;
+        Assert.Equal(0, marked.UnreadCount);
+        Assert.NotNull(marked.LastSeenAt);
+
+        var after = await coach.GetFromJsonAsync<TeamActivitySeenDto>(
+            $"/teams/{team.Id}/activity/seen");
+        Assert.Equal(0, after!.UnreadCount);
+        Assert.NotNull(after.LastSeenAt);
+    }
+
+    [Fact]
+    public async Task Seen_endpoint_is_team_scoped()
+    {
+        var coach = await AuthenticatedClient("coach-seen-scope");
+        var stranger = await AuthenticatedClient("stranger-seen-scope");
+        var team = await CreateTeam(coach, "Larks", $"larks-{Guid.NewGuid():n}".Substring(0, 12));
+
+        var get = await stranger.GetAsync($"/teams/{team.Id}/activity/seen");
+        Assert.Equal(HttpStatusCode.Forbidden, get.StatusCode);
+        var post = await stranger.PostAsync($"/teams/{team.Id}/activity/seen", null);
+        Assert.Equal(HttpStatusCode.Forbidden, post.StatusCode);
+    }
 }

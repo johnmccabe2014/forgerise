@@ -6,6 +6,7 @@ import { PlayerRow } from "@/components/PlayerRow";
 import { CoachesPanel, type CoachRow } from "@/components/CoachesPanel";
 import { InvitesPanel, type InviteRow } from "@/components/InvitesPanel";
 import { ActivityFeed, type ActivityEvent } from "@/components/ActivityFeed";
+import { ActivityUnreadBadge } from "@/components/ActivityUnreadBadge";
 import { sessionTypeLabel } from "@/lib/sessionLabels";
 import { classifyPosition } from "@/lib/rugby";
 
@@ -103,6 +104,14 @@ export default async function TeamDetailPage({
       ? activityResp.data
       : [];
 
+  const seenResp = await serverFetchApi<{ unreadCount: number }>(
+    `/teams/${teamId}/activity/seen`,
+  );
+  const initialUnread =
+    seenResp.ok && typeof seenResp.data?.unreadCount === "number"
+      ? seenResp.data.unreadCount
+      : 0;
+
   return (
     <main className="min-h-screen bg-mist-grey">
       <header className="bg-white border-b border-slate/10">
@@ -154,12 +163,18 @@ export default async function TeamDetailPage({
         </div>
 
         <section aria-labelledby="activity-heading" className="space-y-3">
-          <h2
-            id="activity-heading"
-            className="font-heading text-xl text-deep-charcoal"
-          >
-            Recent activity
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2
+              id="activity-heading"
+              className="font-heading text-xl text-deep-charcoal"
+            >
+              Recent activity
+            </h2>
+            <ActivityUnreadBadge
+              teamId={team.data.id}
+              initialUnread={initialUnread}
+            />
+          </div>
           <div className="rounded-card bg-white p-4 shadow-soft">
             <ActivityFeed teamId={team.data.id} events={activity} />
           </div>

@@ -21,6 +21,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<SessionPlan> SessionPlans => Set<SessionPlan>();
     public DbSet<PlayerLink> PlayerLinks => Set<PlayerLink>();
     public DbSet<PlayerInvite> PlayerInvites => Set<PlayerInvite>();
+    public DbSet<TeamActivitySeen> TeamActivitySeens => Set<TeamActivitySeen>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -197,6 +198,12 @@ public sealed class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(x => x.PlayerId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<TeamActivitySeen>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TeamId, x.UserId }).IsUnique();
         });
     }
 }

@@ -142,4 +142,88 @@ public sealed class TeamActivityController : ControllerBase
 
         return Ok(events.OrderByDescending(e => e.At).Take(cap).ToList());
     }
+
+    /// <summary>
+    /// Per-coach unread badge state. Counts player-driven events newer than
+    /// the caller's last seen watermark. Capped at 99 (UI renders "99+").
+    /// </summary>
+    [HttpGet("activity/seen")]
+    public async Task<IActionResult> GetSeen(Guid teamId, CancellationToken ct)
+    {
+        var (_, err) = await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
+        if (err is not null) return err;
+
+        var userId = User.TryGetUserId();
+        if (userId is null) return Unauthorized();
+
+        var seen = await _db.TeamActivitySeens
+            .FirstOrDefaultAsync(s => s.TeamId == teamId && s.UserId == userId, ct);
+        var cutoff = seen?.LastSeenAt ?? DateTimeOffset.MinValue;
+
+        var unread = await CountUnreadAsync(teamId, cutoff, ct);
+        return Ok(new TeamActivitySeenDto(seen?.LastSeenAt, unread));
+    }
+
+    /// <summary>
+    /// Mark the activity feed as read up to "now" for the calling coach.
+    /// Idempotent upsert keyed by (TeamId, UserId).
+    /// </summary>
+    [HttpPost("activity/seen")]
+    public async Task<IActionResult> MarkSeen(Guid teamId, CancellationToken ct)
+    {
+        var (_, err) = await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
+        if (err is not null) return err;
+
+        var userId = User.TryGetUserId();
+        if (userId is null) return Unauthorized();
+
+        var now = _time.GetUtcNow();
+        var seen = await _db.TeamActivitySeens
+            .FirstOrDefaultAsync(s => s.TeamId == teamId && s.UserId == userId, ct);
+        if (seen is null)
+        {
+            seen = new Data.Entities.TeamActivitySeen
+            {
+                TeamId = teamId,
+                UserId = userId.Value,
+                LastSeenAt = now,
+            };
+            _db.TeamActivitySeens.Add(seen);
+        }
+        else
+        {
+            seen.LastSeenAt = now;
+        }
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new TeamActivitySeenDto(seen.LastSeenAt, 0));
+    }
+
+    private async Task<int> CountUnreadAsync(Guid teamId, DateTimeOffset cutoff, CancellationToken ct)
+    {
+        const int cap = 99;
+        var ids = await _db.Players
+            .Where(p => p.TeamId == teamId && p.DeletedAt == null)
+            .Select(p => p.Id)
+            .ToArrayAsync(ct);
+        if (ids.Length == 0) return 0;
+
+        var checkins = await _db.WellnessCheckIns
+            .CountAsync(c => ids.Contains(c.PlayerId)
+                && c.SubmittedBySelf
+                && c.CreatedAt > cutoff, ct);
+        if (checkins >= cap) return cap;
+
+        var incidents = await _db.IncidentReports
+            .CountAsync(i => ids.Contains(i.PlayerId)
+                && i.SubmittedBySelf
+                && i.DeletedAt == null
+                && i.CreatedAt > cutoff, ct);
+        if (checkins + incidents >= cap) return cap;
+
+        var redemptions = await _db.PlayerLinks
+            .CountAsync(l => ids.Contains(l.PlayerId) && l.ClaimedAt > cutoff, ct);
+
+        return Math.Min(cap, checkins + incidents + redemptions);
+    }
 }
