@@ -17,21 +17,23 @@ export function middleware(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-correlation-id", correlationId);
 
+  // Per-request CSP nonce. Next.js auto-applies this to its inlined
+  // bootstrap and route scripts when it sees the `x-nonce` request header,
+  // so we can keep `script-src` strict (no 'unsafe-inline') in prod.
+  const isProd = process.env.NODE_ENV === "production";
+  const nonceBytes = new Uint8Array(16);
+  crypto.getRandomValues(nonceBytes);
+  const nonce = btoa(String.fromCharCode(...nonceBytes));
+  requestHeaders.set("x-nonce", nonce);
+
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set("x-correlation-id", correlationId);
 
-  // Security headers (master prompt §10). Tight CSP — no inline scripts,
-  // no eval, default deny. `connect-src` covers the same-origin /api/proxy
-  // pass-through; if we ever talk to the API directly from the browser the
-  // host needs to be added here.
-  const isProd = process.env.NODE_ENV === "production";
+  // Security headers (master prompt §10).
   const csp = [
     "default-src 'self'",
-    // Next.js inlines a small bootstrap script in the document; keep
-    // 'unsafe-inline' for *styles* only (Tailwind/inline style attrs) and
-    // rely on Next's nonce (or strict hash on prod) for scripts.
     isProd
-      ? "script-src 'self'"
+      ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
       : "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
