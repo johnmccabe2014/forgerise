@@ -45,7 +45,8 @@ public sealed class SessionPlansController : ControllerBase
         var recs = JsonSerializer.Deserialize<List<SessionPlanRecommendationDto>>(plan.RecommendationsJson, JsonOpts)
                    ?? new List<SessionPlanRecommendationDto>();
         return new SessionPlanDto(plan.Id, plan.TeamId, plan.GeneratedAt, plan.BasedOnSessionId,
-            plan.Focus, plan.Summary, blocks, snapshot, recs, plan.RecentSelfIncidentCount);
+            plan.Focus, plan.Summary, blocks, snapshot, recs, plan.RecentSelfIncidentCount,
+            plan.AdoptedAt, plan.AdoptedSessionId);
     }
 
     [HttpGet]
@@ -179,5 +180,60 @@ public sealed class SessionPlansController : ControllerBase
         _log.LogInformation("session_plan.generated {PlanId} {TeamId} {RosterCount}", entity.Id, teamId, snapshot.Count);
 
         return CreatedAtAction(nameof(Get), new { teamId, id = entity.Id }, Materialise(entity));
+    }
+
+    [HttpPost("{id:guid}/adopt")]
+    public async Task<IActionResult> Adopt(
+        Guid teamId,
+        Guid id,
+        [FromBody] AdoptSessionPlanRequest request,
+        CancellationToken ct)
+    {
+        var (_, err) = await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
+        if (err is not null) return err;
+
+        var plan = await _db.SessionPlans.FirstOrDefaultAsync(p => p.Id == id && p.TeamId == teamId, ct);
+        if (plan is null) return NotFound();
+        if (plan.AdoptedSessionId is not null)
+        {
+            return ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]>
+            {
+                ["plan"] = new[] { "Plan has already been adopted." },
+            }));
+        }
+
+        // Build a short, coach-readable digest of the recommended drills so
+        // they survive on the Session record even if the catalogue moves.
+        var recs = JsonSerializer.Deserialize<List<SessionPlanRecommendationDto>>(plan.RecommendationsJson, JsonOpts)
+                   ?? new List<SessionPlanRecommendationDto>();
+        var notes = recs.Count == 0
+            ? null
+            : "Adopted from session plan. Drills:\n" + string.Join("\n",
+                recs.Select(r => $"- {r.Title} ({r.DurationMinutes} min) — {r.Rationale}"));
+
+        var now = _time.GetUtcNow();
+        var actor = User.TryGetUserId()!.Value;
+        var session = new Session
+        {
+            Id = Guid.NewGuid(),
+            TeamId = teamId,
+            ScheduledAt = request.ScheduledAt,
+            DurationMinutes = request.DurationMinutes,
+            Type = request.Type,
+            Location = request.Location,
+            Focus = plan.Focus,
+            ReviewNotes = notes,
+            CreatedByUserId = actor,
+            CreatedAt = now,
+        };
+        _db.Sessions.Add(session);
+
+        plan.AdoptedAt = now;
+        plan.AdoptedByUserId = actor;
+        plan.AdoptedSessionId = session.Id;
+        await _db.SaveChangesAsync(ct);
+
+        _log.LogInformation("session_plan.adopted {PlanId} {SessionId} {TeamId}", plan.Id, session.Id, teamId);
+        return Ok(Materialise(plan));
     }
 }

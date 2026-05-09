@@ -169,4 +169,51 @@ public class SessionPlanEndpointsTests : IClassFixture<ForgeRiseFactory>
             $"/teams/{team.Id}/session-plans/{dto.Id}");
         Assert.Equal(2, fetched!.RecentSelfIncidentCount);
     }
+
+    [Fact]
+    public async Task Adopt_creates_a_session_and_stamps_the_plan()
+    {
+        var (client, teamId, _) = await Seed("ad1");
+
+        var gen = await client.PostAsJsonAsync($"/teams/{teamId}/session-plans/generate",
+            new { focus = "Lineout" });
+        gen.EnsureSuccessStatusCode();
+        var plan = (await gen.Content.ReadFromJsonAsync<SessionPlanDto>())!;
+        Assert.Null(plan.AdoptedAt);
+
+        var scheduled = DateTimeOffset.UtcNow.AddDays(2);
+        var adopt = await client.PostAsJsonAsync(
+            $"/teams/{teamId}/session-plans/{plan.Id}/adopt",
+            new
+            {
+                scheduledAt = scheduled,
+                durationMinutes = 90,
+                type = (int)Data.Entities.SessionType.Training,
+                location = "Main pitch",
+            });
+        Assert.Equal(HttpStatusCode.OK, adopt.StatusCode);
+        var adopted = (await adopt.Content.ReadFromJsonAsync<SessionPlanDto>())!;
+        Assert.NotNull(adopted.AdoptedAt);
+        Assert.NotNull(adopted.AdoptedSessionId);
+
+        // The session that was created carries the plan's focus and a notes
+        // digest of the recommended drills.
+        var sessions = await client.GetFromJsonAsync<List<SessionDto>>(
+            $"/teams/{teamId}/sessions");
+        var session = Assert.Single(sessions!, s => s.Id == adopted.AdoptedSessionId);
+        Assert.Equal("Lineout", session.Focus);
+        Assert.NotNull(session.ReviewNotes);
+        Assert.Contains("Adopted from session plan", session.ReviewNotes!);
+
+        // Adopting twice is rejected.
+        var again = await client.PostAsJsonAsync(
+            $"/teams/{teamId}/session-plans/{plan.Id}/adopt",
+            new
+            {
+                scheduledAt = scheduled,
+                durationMinutes = 90,
+                type = (int)Data.Entities.SessionType.Training,
+            });
+        Assert.Equal(HttpStatusCode.BadRequest, again.StatusCode);
+    }
 }

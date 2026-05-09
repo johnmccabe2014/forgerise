@@ -27,4 +27,13 @@ public sealed class SessionPlan
     /// backward compatible.
     /// </summary>
     public int RecentSelfIncidentCount { get; set; }
+
+    /// <summary>
+    /// Adoption metadata: a coach has accepted this plan and turned it into
+    /// a real <see cref="Session"/>. Populated together by the adopt
+    /// endpoint; null until then.
+    /// </summary>
+    public DateTimeOffset? AdoptedAt { get; set; }
+    public Guid? AdoptedByUserId { get; set; }
+    public Guid? AdoptedSessionId { get; set; }
 }

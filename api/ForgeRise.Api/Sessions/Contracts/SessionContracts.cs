@@ -76,4 +76,14 @@ public sealed record SessionPlanDto(
     IReadOnlyList<SessionPlanBlockDto> Blocks,
     IReadOnlyList<SessionPlanReadinessRow> ReadinessSnapshot,
     IReadOnlyList<SessionPlanRecommendationDto> Recommendations,
-    int RecentSelfIncidentCount = 0);
+    int RecentSelfIncidentCount = 0,
+    DateTimeOffset? AdoptedAt = null,
+    Guid? AdoptedSessionId = null);
+
+public sealed class AdoptSessionPlanRequest
+{
+    [Required] public DateTimeOffset ScheduledAt { get; init; }
+    [Range(5, 480)] public int DurationMinutes { get; init; } = 75;
+    [Required] public SessionType Type { get; init; } = SessionType.Training;
+    [StringLength(120)] public string? Location { get; init; }
+}

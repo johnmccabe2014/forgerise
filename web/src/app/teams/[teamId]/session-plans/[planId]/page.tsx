@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { READINESS_LABELS, type ReadinessCategory } from "@/types/welfare";
+import { RegeneratePlanButton } from "@/components/RegeneratePlanButton";
+import { AdoptPlanForm } from "@/components/AdoptPlanForm";
 
 interface PlanBlockDto {
   block: string;
@@ -36,6 +38,8 @@ interface SessionPlanDto {
   readinessSnapshot: ReadinessRow[];
   recommendations: RecommendationDto[];
   recentSelfIncidentCount?: number;
+  adoptedAt?: string | null;
+  adoptedSessionId?: string | null;
 }
 
 const SAFE_CATEGORY_TO_READINESS: Record<number, ReadinessCategory> = {
@@ -80,14 +84,24 @@ export default async function SessionPlanDetailPage({
   params: Promise<{ teamId: string; planId: string }>;
 }) {
   const { teamId, planId } = await params;
-  const planResp = await serverFetchApi<SessionPlanDto>(
-    `/teams/${teamId}/session-plans/${planId}`,
-  );
+  const [planResp, prefsResp] = await Promise.all([
+    serverFetchApi<SessionPlanDto>(
+      `/teams/${teamId}/session-plans/${planId}`,
+    ),
+    serverFetchApi<{ drillId: string; status: "favourite" | "exclude" | null }[]>(
+      `/teams/${teamId}/drill-preferences`,
+    ),
+  ]);
   if (!planResp.ok) {
     if (planResp.status === 401) redirect("/login");
     redirect(`/teams/${teamId}/session-plans`);
   }
   const plan = planResp.data;
+  const prefs = prefsResp.ok ? prefsResp.data : [];
+  const favouriteIds = new Set(
+    prefs.filter((p) => p.status === "favourite").map((p) => p.drillId),
+  );
+  const excludedCount = prefs.filter((p) => p.status === "exclude").length;
 
   const intensity = plan.blocks[0]?.intensity ?? "Standard";
   const intensityStyle =
@@ -144,6 +158,19 @@ export default async function SessionPlanDetailPage({
             {plan.readinessSnapshot.length} player
             {plan.readinessSnapshot.length === 1 ? "" : "s"} reported
           </p>
+          <div className="flex flex-wrap items-start gap-2 pt-2">
+            {plan.adoptedAt ? (
+              <p
+                data-testid="plan-adopted-banner"
+                className="rounded-pill bg-readiness-ready/15 text-readiness-ready px-3 py-1 text-xs font-medium"
+              >
+                ✓ Adopted {fmtWhen(plan.adoptedAt)}
+              </p>
+            ) : (
+              <AdoptPlanForm teamId={teamId} planId={plan.id} />
+            )}
+            <RegeneratePlanButton teamId={teamId} focus={plan.focus} />
+          </div>
         </div>
 
         <section
@@ -249,9 +276,19 @@ export default async function SessionPlanDetailPage({
                   className="rounded-card bg-white p-4 shadow-soft"
                 >
                   <div className="flex items-baseline justify-between gap-3">
-                    <p className="font-heading text-forge-navy truncate">
-                      {r.title}
-                    </p>
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <p className="font-heading text-forge-navy truncate">
+                        {r.title}
+                      </p>
+                      {favouriteIds.has(r.drillId) && (
+                        <span
+                          data-testid={`favourite-pill-${r.drillId}`}
+                          className="shrink-0 inline-flex items-center rounded-pill bg-rise-copper/15 text-rise-copper px-2 py-0.5 text-[11px] font-medium"
+                        >
+                          ★ Team favourite
+                        </span>
+                      )}
+                    </div>
                     <span className="shrink-0 text-xs text-slate">
                       {r.durationMinutes} min
                     </span>
@@ -277,6 +314,21 @@ export default async function SessionPlanDetailPage({
                 </li>
               ))}
             </ul>
+          )}
+          {excludedCount > 0 && (
+            <p
+              data-testid="plan-excluded-footnote"
+              className="text-xs text-slate"
+            >
+              {excludedCount} drill{excludedCount === 1 ? "" : "s"} excluded
+              for this team.{" "}
+              <Link
+                href={`/teams/${teamId}/drill-preferences`}
+                className="underline"
+              >
+                Manage drill preferences
+              </Link>
+            </p>
           )}
         </section>
       </section>
