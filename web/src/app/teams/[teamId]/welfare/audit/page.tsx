@@ -16,6 +16,11 @@ interface AuditEntryDto {
   playerDisplayName: string | null;
 }
 
+interface PlayerDto {
+  id: string;
+  displayName: string;
+}
+
 const ACTION_LABELS: Record<number, string> = {
   0: "Read raw check-in",
   1: "Read raw incident",
@@ -28,6 +33,18 @@ const ACTION_LABELS: Record<number, string> = {
   8: "Acknowledge incident",
 };
 
+const ACTION_NAMES: { value: string; label: string }[] = [
+  { value: "ReadRawCheckIn", label: "Read raw check-in" },
+  { value: "ReadRawIncident", label: "Read raw incident" },
+  { value: "PurgeRawCheckIn", label: "Purge raw check-in" },
+  { value: "PurgeRawIncident", label: "Purge raw incident" },
+  { value: "DeleteCheckIn", label: "Delete check-in" },
+  { value: "DeleteIncident", label: "Delete incident" },
+  { value: "SelfSubmitCheckIn", label: "Self-submit check-in" },
+  { value: "SelfReportIncident", label: "Self-report incident" },
+  { value: "AcknowledgeIncident", label: "Acknowledge incident" },
+];
+
 function fmtWhen(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     day: "2-digit",
@@ -38,17 +55,45 @@ function fmtWhen(iso: string): string {
   });
 }
 
+function pickString(
+  v: string | string[] | undefined,
+): string | undefined {
+  if (Array.isArray(v)) return v[0];
+  return v;
+}
+
 export default async function WelfareAuditPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ teamId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { teamId } = await params;
-  const res = await serverFetchApi<AuditEntryDto[]>(
-    `/teams/${teamId}/welfare-audit`,
-  );
-  if (!res.ok) notFound();
-  const rows = Array.isArray(res.data) ? res.data : [];
+  const sp = await searchParams;
+  const action = pickString(sp.action) ?? "";
+  const playerId = pickString(sp.playerId) ?? "";
+  const from = pickString(sp.from) ?? "";
+  const to = pickString(sp.to) ?? "";
+
+  const qs = new URLSearchParams();
+  if (action) qs.set("action", action);
+  if (playerId) qs.set("playerId", playerId);
+  if (from) qs.set("from", new Date(from).toISOString());
+  if (to) qs.set("to", new Date(to).toISOString());
+  const query = qs.toString();
+
+  const [auditRes, playersRes] = await Promise.all([
+    serverFetchApi<AuditEntryDto[]>(
+      `/teams/${teamId}/welfare-audit${query ? `?${query}` : ""}`,
+    ),
+    serverFetchApi<PlayerDto[]>(`/teams/${teamId}/players`),
+  ]);
+  if (!auditRes.ok) notFound();
+  const rows = Array.isArray(auditRes.data) ? auditRes.data : [];
+  const players =
+    playersRes.ok && Array.isArray(playersRes.data) ? playersRes.data : [];
+  const hasFilters = Boolean(action || playerId || from || to);
 
   return (
     <main className="min-h-screen bg-mist-grey">
@@ -76,9 +121,91 @@ export default async function WelfareAuditPage({
           </p>
         </div>
 
+        <form
+          method="GET"
+          data-testid="welfare-audit-filters"
+          className="rounded-card bg-white p-4 shadow-soft grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          <label className="text-xs text-slate flex flex-col gap-1">
+            Action
+            <select
+              name="action"
+              defaultValue={action}
+              className="rounded border border-slate/30 bg-white px-2 py-1 text-sm text-deep-charcoal"
+            >
+              <option value="">All</option>
+              {ACTION_NAMES.map((a) => (
+                <option key={a.value} value={a.value}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-xs text-slate flex flex-col gap-1">
+            Player
+            <select
+              name="playerId"
+              defaultValue={playerId}
+              className="rounded border border-slate/30 bg-white px-2 py-1 text-sm text-deep-charcoal"
+            >
+              <option value="">All</option>
+              {players.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-xs text-slate flex flex-col gap-1">
+            From
+            <input
+              type="datetime-local"
+              name="from"
+              defaultValue={from}
+              className="rounded border border-slate/30 bg-white px-2 py-1 text-sm text-deep-charcoal"
+            />
+          </label>
+
+          <label className="text-xs text-slate flex flex-col gap-1">
+            To
+            <input
+              type="datetime-local"
+              name="to"
+              defaultValue={to}
+              className="rounded border border-slate/30 bg-white px-2 py-1 text-sm text-deep-charcoal"
+            />
+          </label>
+
+          <div className="sm:col-span-2 lg:col-span-4 flex items-center gap-3">
+            <button
+              type="submit"
+              className="rounded-pill bg-forge-navy px-4 py-1.5 text-sm font-medium text-white hover:bg-forge-navy/90"
+            >
+              Apply filters
+            </button>
+            {hasFilters && (
+              <Link
+                href={`/teams/${teamId}/welfare/audit`}
+                className="text-xs text-rise-copper hover:underline"
+              >
+                Clear
+              </Link>
+            )}
+            <span className="ml-auto text-xs text-slate">
+              {rows.length} match{rows.length === 1 ? "" : "es"}
+            </span>
+          </div>
+        </form>
+
         {rows.length === 0 ? (
           <div className="rounded-card bg-white p-6 shadow-soft">
-            <p className="text-slate">No audit events yet.</p>
+            <p className="text-slate">
+              {hasFilters
+                ? "No audit events match those filters."
+                : "No audit events yet."}
+            </p>
           </div>
         ) : (
           <div

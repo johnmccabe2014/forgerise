@@ -1,4 +1,5 @@
 using ForgeRise.Api.Data;
+using ForgeRise.Api.Data.Entities;
 using ForgeRise.Api.WelfareModule;
 using ForgeRise.Api.WelfareModule.Contracts;
 using Microsoft.AspNetCore.Authorization;
@@ -16,13 +17,38 @@ public sealed class WelfareAuditController : ControllerBase
     public WelfareAuditController(AppDbContext db) => _db = db;
 
     [HttpGet]
-    public async Task<IActionResult> List(Guid teamId, CancellationToken ct)
+    public async Task<IActionResult> List(
+        Guid teamId,
+        [FromQuery] string? action,
+        [FromQuery] Guid? playerId,
+        [FromQuery] DateTimeOffset? from,
+        [FromQuery] DateTimeOffset? to,
+        CancellationToken ct)
     {
         var (_, err) = await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
         if (err is not null) return err;
 
-        var rows = await _db.WelfareAuditLogs
-            .Where(a => _db.Players.Any(p => p.Id == a.PlayerId && p.TeamId == teamId))
+        WelfareAuditAction? actionFilter = null;
+        if (!string.IsNullOrWhiteSpace(action))
+        {
+            if (!Enum.TryParse<WelfareAuditAction>(action, ignoreCase: true, out var parsed))
+            {
+                return ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]>
+                {
+                    ["action"] = new[] { "unknown action" },
+                }));
+            }
+            actionFilter = parsed;
+        }
+
+        var query = _db.WelfareAuditLogs
+            .Where(a => _db.Players.Any(p => p.Id == a.PlayerId && p.TeamId == teamId));
+        if (actionFilter is { } act) query = query.Where(a => a.Action == act);
+        if (playerId is { } pid) query = query.Where(a => a.PlayerId == pid);
+        if (from is { } f) query = query.Where(a => a.At >= f);
+        if (to is { } t) query = query.Where(a => a.At <= t);
+
+        var rows = await query
             .OrderByDescending(a => a.At)
             .Take(500)
             .ToListAsync(ct);

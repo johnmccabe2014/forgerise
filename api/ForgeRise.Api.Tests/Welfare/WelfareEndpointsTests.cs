@@ -113,6 +113,31 @@ public class WelfareEndpointsTests : IClassFixture<ForgeRiseFactory>
     }
 
     [Fact]
+    public async Task Audit_log_filters_by_action_and_player()
+    {
+        var (client, teamId, playerId) = await SeedTeamAndPlayer("filt");
+        var create = await client.PostAsJsonAsync($"/teams/{teamId}/players/{playerId}/checkins", new
+        {
+            sleepHours = 7.0, sorenessScore = 2, moodScore = 4, stressScore = 2, fatigueScore = 2,
+        });
+        var summary = await create.Content.ReadFromJsonAsync<CheckInSummaryDto>();
+        (await client.GetAsync($"/teams/{teamId}/players/{playerId}/checkins/{summary!.Id}/raw"))
+            .EnsureSuccessStatusCode();
+
+        var byAction = await client.GetFromJsonAsync<List<AuditEntryDto>>(
+            $"/teams/{teamId}/welfare-audit?action=ReadRawCheckIn");
+        Assert.NotEmpty(byAction!);
+        Assert.All(byAction!, a => Assert.Equal(WelfareAuditAction.ReadRawCheckIn, a.Action));
+
+        var byPlayer = await client.GetFromJsonAsync<List<AuditEntryDto>>(
+            $"/teams/{teamId}/welfare-audit?playerId={playerId}");
+        Assert.All(byPlayer!, a => Assert.Equal(playerId, a.PlayerId));
+
+        var bogus = await client.GetAsync($"/teams/{teamId}/welfare-audit?action=NotARealAction");
+        Assert.Equal(HttpStatusCode.BadRequest, bogus.StatusCode);
+    }
+
+    [Fact]
     public async Task Purge_raw_clears_fields_keeps_category()
     {
         var (client, teamId, playerId) = await SeedTeamAndPlayer("dan");
