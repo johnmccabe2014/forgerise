@@ -51,6 +51,7 @@ interface IncidentSummaryDto {
   severity: number; // 0 Low, 1 Medium, 2 High
   summary: string;
   submittedBySelf: boolean;
+  acknowledgedAt: string | null;
 }
 
 const SAFE_CATEGORY_TO_READINESS: Record<number, ReadinessCategory> = {

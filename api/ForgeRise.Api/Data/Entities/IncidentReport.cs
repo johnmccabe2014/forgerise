@@ -37,6 +37,14 @@ public class IncidentReport
     /// </summary>
     public bool SubmittedBySelf { get; set; }
 
+    /// <summary>
+    /// Set when a coach acknowledges a self-reported incident. Coach-recorded
+    /// incidents are considered acknowledged at creation; this field is
+    /// primarily meaningful for triaging player-submitted reports.
+    /// </summary>
+    public DateTimeOffset? AcknowledgedAt { get; set; }
+    public Guid? AcknowledgedByUserId { get; set; }
+
     public DateTimeOffset? DeletedAt { get; set; }
     public DateTimeOffset? RawPurgedAt { get; set; }
 }

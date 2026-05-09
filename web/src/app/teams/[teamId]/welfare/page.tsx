@@ -4,6 +4,10 @@ import { serverFetchApi } from "@/lib/serverApi";
 import { ReadinessBadge } from "@/components/ReadinessBadge";
 import { SelfSubmittedPill } from "@/components/SelfSubmittedPill";
 import {
+  IncidentTriagePanel,
+  type UnacknowledgedIncident,
+} from "@/components/IncidentTriagePanel";
+import {
   READINESS_CATEGORIES,
   READINESS_LABELS,
   type ReadinessCategory,
@@ -17,6 +21,16 @@ interface TeamDto {
 interface PlayerLite {
   id: string;
   displayName: string;
+}
+
+interface IncidentRow {
+  id: string;
+  playerId: string;
+  occurredAt: string;
+  severity: number;
+  summary: string;
+  submittedBySelf: boolean;
+  acknowledgedAt: string | null;
 }
 
 interface TeamReadinessRow {
@@ -66,9 +80,10 @@ export default async function WelfareDashboardPage({
     redirect("/dashboard");
   }
 
-  const [readinessResp, playersResp] = await Promise.all([
+  const [readinessResp, playersResp, incidentsResp] = await Promise.all([
     serverFetchApi<TeamReadinessRow[]>(`/teams/${teamId}/readiness`),
     serverFetchApi<PlayerLite[]>(`/teams/${teamId}/players`),
+    serverFetchApi<IncidentRow[]>(`/teams/${teamId}/incidents`),
   ]);
 
   const rows =
@@ -77,6 +92,23 @@ export default async function WelfareDashboardPage({
       : [];
   const roster =
     playersResp.ok && Array.isArray(playersResp.data) ? playersResp.data : [];
+  const incidents =
+    incidentsResp.ok && Array.isArray(incidentsResp.data)
+      ? incidentsResp.data
+      : [];
+  const playerNameById = new Map(roster.map((p) => [p.id, p.displayName]));
+
+  // Player-submitted incidents that haven't been triaged yet.
+  const unacknowledged: UnacknowledgedIncident[] = incidents
+    .filter((i) => i.submittedBySelf && i.acknowledgedAt === null)
+    .map((i) => ({
+      id: i.id,
+      playerId: i.playerId,
+      playerDisplayName: playerNameById.get(i.playerId) ?? "Unknown player",
+      occurredAt: i.occurredAt,
+      severity: i.severity,
+      summary: i.summary,
+    }));
 
   // Bucket reported players by readiness category.
   const buckets: Record<ReadinessCategory, TeamReadinessRow[]> = {
@@ -126,6 +158,29 @@ export default async function WelfareDashboardPage({
             {roster.length === 1 ? "" : "s"} reported.
           </p>
         </div>
+
+        <section
+          aria-labelledby="triage-heading"
+          className="rounded-card bg-white p-4 shadow-soft space-y-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2
+              id="triage-heading"
+              className="font-heading text-xl text-deep-charcoal"
+            >
+              Unread player reports
+            </h2>
+            {unacknowledged.length > 0 && (
+              <span
+                aria-label={`${unacknowledged.length} unacknowledged`}
+                className="rounded-full bg-rise-copper px-2 py-0.5 text-xs font-medium text-white"
+              >
+                {unacknowledged.length}
+              </span>
+            )}
+          </div>
+          <IncidentTriagePanel teamId={teamId} incidents={unacknowledged} />
+        </section>
 
         <ol className="grid gap-4 sm:grid-cols-2">
           {READINESS_CATEGORIES.map((cat) => {

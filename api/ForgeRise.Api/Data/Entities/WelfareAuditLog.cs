@@ -10,6 +10,7 @@ public enum WelfareAuditAction
     DeleteIncident,
     SelfSubmitCheckIn,
     SelfReportIncident,
+    AcknowledgeIncident,
 }
 
 /// <summary>

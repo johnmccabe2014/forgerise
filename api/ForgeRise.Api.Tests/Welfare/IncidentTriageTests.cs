@@ -1,0 +1,124 @@
+using System.Net;
+using System.Net.Http.Json;
+using ForgeRise.Api.Data.Entities;
+using ForgeRise.Api.Tests.TestInfra;
+using ForgeRise.Api.Teams.Contracts;
+using ForgeRise.Api.WelfareModule.Contracts;
+using Xunit;
+
+namespace ForgeRise.Api.Tests.Welfare;
+
+/// <summary>
+/// Coach triage of player-submitted incidents. Coach-recorded incidents
+/// auto-acknowledge at creation; player-submitted reports require explicit ack.
+/// </summary>
+public class IncidentTriageTests : IClassFixture<ForgeRiseFactory>
+{
+    private readonly ForgeRiseFactory _factory;
+    public IncidentTriageTests(ForgeRiseFactory factory) => _factory = factory;
+
+    private async Task<HttpClient> AuthenticatedClient(string emailPrefix)
+    {
+        var client = _factory.CreateDefaultClient(new CookieJarHandler());
+        var resp = await client.PostAsJsonAsync("/auth/register", new
+        {
+            email = $"{emailPrefix}-{Guid.NewGuid():n}@example.com",
+            password = "Correct horse battery staple",
+            displayName = emailPrefix,
+        });
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+        return client;
+    }
+
+    private static async Task<TeamDto> CreateTeam(HttpClient client, string name, string code)
+    {
+        var resp = await client.PostAsJsonAsync("/teams", new { name, code });
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+        return (await resp.Content.ReadFromJsonAsync<TeamDto>())!;
+    }
+
+    private static async Task<PlayerDto> AddPlayer(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync($"/teams/{teamId}/players",
+            new { displayName = name, jerseyNumber = 10, position = "FH" });
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+        return (await resp.Content.ReadFromJsonAsync<PlayerDto>())!;
+    }
+
+    private static async Task<PlayerInviteDto> CreateInvite(HttpClient client, Guid teamId, Guid playerId)
+    {
+        var resp = await client.PostAsync($"/teams/{teamId}/players/{playerId}/invites", null);
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+        return (await resp.Content.ReadFromJsonAsync<PlayerInviteDto>())!;
+    }
+
+    [Fact]
+    public async Task Coach_recorded_incident_is_acknowledged_at_creation()
+    {
+        var coach = await AuthenticatedClient("coach-ack1");
+        var team = await CreateTeam(coach, "Hawks", "hawks-ack1");
+        var player = await AddPlayer(coach, team.Id, "Coach-Filed");
+
+        var resp = await coach.PostAsJsonAsync(
+            $"/teams/{team.Id}/players/{player.Id}/incidents",
+            new { severity = (int)IncidentSeverity.Medium, summary = "Twisted ankle" });
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+        var created = (await resp.Content.ReadFromJsonAsync<IncidentSummaryDto>())!;
+        Assert.False(created.SubmittedBySelf);
+        Assert.NotNull(created.AcknowledgedAt);
+    }
+
+    [Fact]
+    public async Task Self_reported_incident_is_unacknowledged_until_coach_acks()
+    {
+        var coach = await AuthenticatedClient("coach-ack2");
+        var player = await AuthenticatedClient("player-ack2");
+        var team = await CreateTeam(coach, "Falcons", "falcons-ack2");
+        var roster = await AddPlayer(coach, team.Id, "Self-Filer");
+        var invite = await CreateInvite(coach, team.Id, roster.Id);
+
+        var redeem = await player.PostAsJsonAsync("/player-invites/redeem", new { code = invite.Code });
+        redeem.EnsureSuccessStatusCode();
+
+        var report = await player.PostAsJsonAsync(
+            $"/me/players/{roster.Id}/incidents",
+            new { severity = (int)IncidentSeverity.Low, summary = "Sore knee after sprints" });
+        Assert.Equal(HttpStatusCode.Created, report.StatusCode);
+
+        var list = await coach.GetFromJsonAsync<List<IncidentSummaryDto>>($"/teams/{team.Id}/incidents");
+        var row = Assert.Single(list!);
+        Assert.True(row.SubmittedBySelf);
+        Assert.Null(row.AcknowledgedAt);
+
+        var ack = await coach.PostAsync(
+            $"/teams/{team.Id}/players/{roster.Id}/incidents/{row.Id}/acknowledge", null);
+        Assert.Equal(HttpStatusCode.OK, ack.StatusCode);
+        var acked = (await ack.Content.ReadFromJsonAsync<IncidentSummaryDto>())!;
+        Assert.NotNull(acked.AcknowledgedAt);
+
+        // Idempotent: ack again returns the same timestamp.
+        var ack2 = await coach.PostAsync(
+            $"/teams/{team.Id}/players/{roster.Id}/incidents/{row.Id}/acknowledge", null);
+        Assert.Equal(HttpStatusCode.OK, ack2.StatusCode);
+        var acked2 = (await ack2.Content.ReadFromJsonAsync<IncidentSummaryDto>())!;
+        Assert.Equal(acked.AcknowledgedAt, acked2.AcknowledgedAt);
+    }
+
+    [Fact]
+    public async Task Stranger_cannot_acknowledge_incident()
+    {
+        var coach = await AuthenticatedClient("coach-ack3");
+        var stranger = await AuthenticatedClient("stranger-ack3");
+        var team = await CreateTeam(coach, "Otters", "otters-ack3");
+        var roster = await AddPlayer(coach, team.Id, "Walled");
+
+        var created = await coach.PostAsJsonAsync(
+            $"/teams/{team.Id}/players/{roster.Id}/incidents",
+            new { severity = (int)IncidentSeverity.Low, summary = "Bumped head" });
+        var dto = (await created.Content.ReadFromJsonAsync<IncidentSummaryDto>())!;
+
+        var resp = await stranger.PostAsync(
+            $"/teams/{team.Id}/players/{roster.Id}/incidents/{dto.Id}/acknowledge", null);
+        Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+}

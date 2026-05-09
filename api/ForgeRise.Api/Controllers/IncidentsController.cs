@@ -26,7 +26,7 @@ public sealed class IncidentsController : ControllerBase
     }
 
     private static IncidentSummaryDto ToSummary(IncidentReport i) =>
-        new(i.Id, i.PlayerId, i.OccurredAt, i.Severity, i.Summary, i.SubmittedBySelf);
+        new(i.Id, i.PlayerId, i.OccurredAt, i.Severity, i.Summary, i.SubmittedBySelf, i.AcknowledgedAt);
 
     [HttpGet("incidents")]
     public async Task<IActionResult> List(Guid teamId, CancellationToken ct)
@@ -65,14 +65,19 @@ public sealed class IncidentsController : ControllerBase
         if (err is not null) return err;
 
         var actor = User.TryGetUserId()!.Value;
+        var now = _time.GetUtcNow();
         var incident = new IncidentReport
         {
             PlayerId = playerId,
             RecordedByUserId = actor,
-            OccurredAt = request.OccurredAt ?? _time.GetUtcNow(),
+            OccurredAt = request.OccurredAt ?? now,
             Severity = request.Severity,
             Summary = request.Summary.Trim(),
             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes,
+            // Coach-recorded incidents are acknowledged at creation; only
+            // player-submitted reports need explicit triage.
+            AcknowledgedAt = now,
+            AcknowledgedByUserId = actor,
         };
         _db.IncidentReports.Add(incident);
         await _db.SaveChangesAsync(ct);
@@ -171,5 +176,35 @@ public sealed class IncidentsController : ControllerBase
 
         _log.LogInformation("welfare.incident.deleted {IncidentId} {PlayerId} {ActorUserId}", id, playerId, actor);
         return NoContent();
+    }
+
+    [HttpPost("players/{playerId:guid}/incidents/{id:guid}/acknowledge")]
+    public async Task<IActionResult> Acknowledge(Guid teamId, Guid playerId, Guid id, CancellationToken ct)
+    {
+        var (_, _, err) = await TeamScope.RequireOwnedPlayer(this, _db, teamId, playerId, ct);
+        if (err is not null) return err;
+
+        var incident = await _db.IncidentReports.FirstOrDefaultAsync(
+            i => i.Id == id && i.PlayerId == playerId && i.DeletedAt == null, ct);
+        if (incident is null) return NotFound();
+
+        var actor = User.TryGetUserId()!.Value;
+        if (incident.AcknowledgedAt is null)
+        {
+            incident.AcknowledgedAt = _time.GetUtcNow();
+            incident.AcknowledgedByUserId = actor;
+            _db.WelfareAuditLogs.Add(new WelfareAuditLog
+            {
+                ActorUserId = actor,
+                PlayerId = playerId,
+                SubjectId = id,
+                Action = WelfareAuditAction.AcknowledgeIncident,
+                At = _time.GetUtcNow(),
+            });
+            await _db.SaveChangesAsync(ct);
+            _log.LogInformation("welfare.incident.acknowledged {IncidentId} {PlayerId} {ActorUserId}", id, playerId, actor);
+        }
+
+        return Ok(ToSummary(incident));
     }
 }
