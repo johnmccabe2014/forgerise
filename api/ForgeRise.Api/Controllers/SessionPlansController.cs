@@ -42,8 +42,10 @@ public sealed class SessionPlansController : ControllerBase
                      ?? new List<SessionPlanBlockDto>();
         var snapshot = JsonSerializer.Deserialize<List<SessionPlanReadinessRow>>(plan.ReadinessSnapshotJson, JsonOpts)
                        ?? new List<SessionPlanReadinessRow>();
+        var recs = JsonSerializer.Deserialize<List<SessionPlanRecommendationDto>>(plan.RecommendationsJson, JsonOpts)
+                   ?? new List<SessionPlanRecommendationDto>();
         return new SessionPlanDto(plan.Id, plan.TeamId, plan.GeneratedAt, plan.BasedOnSessionId,
-            plan.Focus, plan.Summary, blocks, snapshot);
+            plan.Focus, plan.Summary, blocks, snapshot, recs);
     }
 
     [HttpGet]
@@ -111,13 +113,24 @@ public sealed class SessionPlansController : ControllerBase
             if (latest is not null) snapshot.Add(new PlayerReadiness(pid, latest.Value));
         }
 
+        // Bias drill recommendations toward low-contact when any player on this team
+        // has self-reported an incident in the last 14 days. Provenance only — never
+        // raw welfare detail. Master prompt §9.
+        var incidentCutoff = _time.GetUtcNow().AddDays(-14);
+        var hasRecentSelfIncident = roster.Count > 0 && await _db.IncidentReports
+            .AnyAsync(i => roster.Contains(i.PlayerId)
+                       && i.SubmittedBySelf
+                       && i.DeletedAt == null
+                       && i.CreatedAt >= incidentCutoff, ct);
+
         var ctx = new SessionPlanContext(
             TeamId: teamId,
             FocusOverride: request.Focus,
             PreviousSessionFocus: basis?.Focus,
             PreviousSessionReview: basis?.ReviewNotes,
             GeneratedAt: _time.GetUtcNow(),
-            Readiness: snapshot);
+            Readiness: snapshot,
+            HasRecentSelfIncident: hasRecentSelfIncident);
 
         var generated = await _generator.GenerateAsync(ctx, ct);
 
@@ -134,6 +147,10 @@ public sealed class SessionPlansController : ControllerBase
                 JsonOpts),
             ReadinessSnapshotJson = JsonSerializer.Serialize(
                 generated.ReadinessSnapshot.Select(r => new SessionPlanReadinessRow(r.PlayerId, r.Category)),
+                JsonOpts),
+            RecommendationsJson = JsonSerializer.Serialize(
+                generated.Recommendations.Select(r => new SessionPlanRecommendationDto(
+                    r.DrillId, r.Title, r.Description, r.DurationMinutes, r.Rationale, r.Tags)),
                 JsonOpts),
         };
         _db.SessionPlans.Add(entity);

@@ -164,6 +164,7 @@ public sealed class AppDbContext : DbContext
             e.Property(x => x.Summary).HasMaxLength(2_000).IsRequired();
             e.Property(x => x.PlanJson).IsRequired();
             e.Property(x => x.ReadinessSnapshotJson).IsRequired();
+            e.Property(x => x.RecommendationsJson).IsRequired().HasDefaultValue("[]");
             e.HasOne(x => x.Team)
                 .WithMany()
                 .HasForeignKey(x => x.TeamId)

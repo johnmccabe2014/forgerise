@@ -58,6 +58,14 @@ public sealed record SessionPlanReadinessRow(Guid PlayerId, SafeCategory Categor
 
 public sealed record SessionPlanBlockDto(string Block, string Title, int DurationMinutes, string Intent, string Intensity);
 
+public sealed record SessionPlanRecommendationDto(
+    string DrillId,
+    string Title,
+    string Description,
+    int DurationMinutes,
+    string Rationale,
+    IReadOnlyList<string> Tags);
+
 public sealed record SessionPlanDto(
     Guid Id,
     Guid TeamId,
@@ -66,4 +74,5 @@ public sealed record SessionPlanDto(
     string Focus,
     string Summary,
     IReadOnlyList<SessionPlanBlockDto> Blocks,
-    IReadOnlyList<SessionPlanReadinessRow> ReadinessSnapshot);
+    IReadOnlyList<SessionPlanReadinessRow> ReadinessSnapshot,
+    IReadOnlyList<SessionPlanRecommendationDto> Recommendations);

@@ -16,6 +16,15 @@ interface ReadinessRow {
   category: number;
 }
 
+interface RecommendationDto {
+  drillId: string;
+  title: string;
+  description: string;
+  durationMinutes: number;
+  rationale: string;
+  tags: string[];
+}
+
 interface SessionPlanDto {
   id: string;
   teamId: string;
@@ -25,6 +34,7 @@ interface SessionPlanDto {
   summary: string;
   blocks: PlanBlockDto[];
   readinessSnapshot: ReadinessRow[];
+  recommendations: RecommendationDto[];
 }
 
 const SAFE_CATEGORY_TO_READINESS: Record<number, ReadinessCategory> = {
@@ -202,6 +212,56 @@ export default async function SessionPlanDetailPage({
                 </li>
               ))}
             </ol>
+          )}
+        </section>
+
+        <section aria-labelledby="recommendations-heading" className="space-y-3">
+          <h2
+            id="recommendations-heading"
+            className="font-heading text-xl text-deep-charcoal"
+          >
+            Suggested drills
+          </h2>
+          {(plan.recommendations ?? []).length === 0 ? (
+            <div className="rounded-card bg-white p-6 shadow-soft text-sm text-slate">
+              No drill suggestions for this plan yet.
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {plan.recommendations.map((r) => (
+                <li
+                  key={r.drillId}
+                  className="rounded-card bg-white p-4 shadow-soft"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="font-heading text-forge-navy truncate">
+                      {r.title}
+                    </p>
+                    <span className="shrink-0 text-xs text-slate">
+                      {r.durationMinutes} min
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-deep-charcoal">
+                    {r.description}
+                  </p>
+                  <p className="mt-2 text-xs italic text-slate">
+                    Why: {r.rationale}
+                  </p>
+                  {r.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {r.tags.map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center rounded-full border border-slate/20 bg-mist-grey px-2 py-0.5 text-[11px] text-slate"
+                        >
+                          {t.replace(/_/g, " ")}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       </section>

@@ -18,4 +18,5 @@ public sealed class SessionPlan
     public string Summary { get; set; } = string.Empty;
     public string PlanJson { get; set; } = "[]";
     public string ReadinessSnapshotJson { get; set; } = "[]";
+    public string RecommendationsJson { get; set; } = "[]";
 }

@@ -26,8 +26,9 @@ public sealed class HeuristicSessionPlanGenerator : ISessionPlanGenerator
 
         var blocks = BuildBlocks(intensity, focus);
         var summary = BuildSummary(intensity, focus, context);
+        var recommendations = DrillRecommender.Recommend(intensity, focus, context.HasRecentSelfIncident);
 
-        return Task.FromResult(new GeneratedPlan(focus, summary, blocks, context.Readiness));
+        return Task.FromResult(new GeneratedPlan(focus, summary, blocks, context.Readiness, recommendations));
     }
 
     internal static string PickIntensity(IReadOnlyList<PlayerReadiness> readiness)

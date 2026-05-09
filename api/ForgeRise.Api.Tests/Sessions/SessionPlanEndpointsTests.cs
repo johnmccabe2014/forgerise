@@ -108,4 +108,22 @@ public class SessionPlanEndpointsTests : IClassFixture<ForgeRiseFactory>
         var list = await stranger.GetAsync($"/teams/{teamId}/session-plans");
         Assert.Equal(HttpStatusCode.Forbidden, list.StatusCode);
     }
+
+    [Fact]
+    public async Task Generated_plan_includes_drill_recommendations()
+    {
+        var (client, teamId, _) = await Seed("sage");
+
+        var resp = await client.PostAsJsonAsync(
+            $"/teams/{teamId}/session-plans/generate",
+            new { focus = "scrum sequencing" });
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+
+        var dto = await resp.Content.ReadFromJsonAsync<SessionPlanDto>();
+        Assert.NotNull(dto);
+        Assert.True(dto!.Recommendations.Count >= 2);
+        // Focus keyword steers at least one recommendation toward the scrum drill.
+        Assert.Contains(dto.Recommendations, r => r.DrillId == "scrum-engage");
+        Assert.All(dto.Recommendations, r => Assert.False(string.IsNullOrWhiteSpace(r.Rationale)));
+    }
 }

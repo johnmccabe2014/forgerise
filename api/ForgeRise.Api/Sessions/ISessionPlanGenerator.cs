@@ -10,7 +10,8 @@ public sealed record SessionPlanContext(
     string? PreviousSessionFocus,
     string? PreviousSessionReview,
     DateTimeOffset GeneratedAt,
-    IReadOnlyList<PlayerReadiness> Readiness);
+    IReadOnlyList<PlayerReadiness> Readiness,
+    bool HasRecentSelfIncident = false);
 
 public sealed record PlanBlock(string Block, string Title, int DurationMinutes, string Intent, string Intensity);
 
@@ -18,7 +19,8 @@ public sealed record GeneratedPlan(
     string Focus,
     string Summary,
     IReadOnlyList<PlanBlock> Blocks,
-    IReadOnlyList<PlayerReadiness> ReadinessSnapshot);
+    IReadOnlyList<PlayerReadiness> ReadinessSnapshot,
+    IReadOnlyList<DrillRecommendation> Recommendations);
 
 public interface ISessionPlanGenerator
 {
