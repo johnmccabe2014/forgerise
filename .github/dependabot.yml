@@ -1,0 +1,45 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, github-actions]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    labels: [dependencies, web]
+    groups:
+      next:
+        patterns: ["next", "eslint-config-next"]
+      testing:
+        patterns: ["@testing-library/*", "vitest", "@vitejs/*", "jsdom"]
+
+  - package-ecosystem: nuget
+    directory: /api
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, api]
+    groups:
+      opentelemetry:
+        patterns: ["OpenTelemetry*"]
+      serilog:
+        patterns: ["Serilog*"]
+
+  - package-ecosystem: docker
+    directory: /web
+    schedule:
+      interval: weekly
+    labels: [dependencies, docker]
+
+  - package-ecosystem: docker
+    directory: /api
+    schedule:
+      interval: weekly
+    labels: [dependencies, docker]

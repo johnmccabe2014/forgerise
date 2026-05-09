@@ -1,0 +1,22 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{cs,csproj,sln,props,targets}]
+indent_size = 4
+
+[*.{md,markdown}]
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab
+
+# --- C# analyzers (welfare-leak guard, see master prompt §9, §11) ---
+# Disallow logging of fields named like raw welfare data.
+# Enforced by Roslyn analyzer + custom rule wired in api/.editorconfig in F12.

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forgerise-dev
+  labels:
+    app.kubernetes.io/part-of: forgerise
+    forgerise.io/environment: dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forgerise-staging
+  labels:
+    app.kubernetes.io/part-of: forgerise
+    forgerise.io/environment: staging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forgerise-prod
+  labels:
+    app.kubernetes.io/part-of: forgerise
+    forgerise.io/environment: prod

@@ -1,0 +1,65 @@
+name: deploy
+
+# Phase 1 placeholder: validates manifests and prints a planned diff against k3s.
+# Does NOT apply changes. Real deploy lands in Phase 5.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target namespace"
+        required: true
+        type: choice
+        options: [forgerise-dev, forgerise-staging, forgerise-prod]
+      confirm:
+        description: "Type DEPLOY to confirm (Phase 5+)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: validate manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install kubeconform
+        run: |
+          curl -sSLo kc.tgz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xzf kc.tgz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate
+        run: kubeconform -strict -summary infra/k8s
+
+  plan:
+    name: plan (self-hosted, no apply)
+    needs: validate
+    # NOTE: provision a runner with label "forgerise-k3s" before enabling.
+    # Until then this job is a guarded no-op.
+    runs-on: [self-hosted, forgerise-k3s]
+    if: ${{ vars.SELF_HOSTED_READY == 'true' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Show planned diff (no apply)
+        run: |
+          kubectl --context k3s -n "${{ inputs.environment }}" diff -f infra/k8s || true
+          echo "::notice::Phase 1 stops here. Apply is enabled in Phase 5."
+
+      - name: Refuse apply unless confirmed and Phase ≥ 5
+        if: ${{ inputs.confirm == 'DEPLOY' }}
+        run: |
+          echo "::error::Apply is intentionally disabled until Phase 5. Aborting."
+          exit 1
+
+# Rollback (manual, until Phase 5):
+#   kubectl -n forgerise-<env> rollout undo deployment/forgerise-api
+#   kubectl -n forgerise-<env> rollout undo deployment/forgerise-web

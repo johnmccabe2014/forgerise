@@ -1,0 +1,22 @@
+# Local-development services only. Production uses k3s on the self-hosted runner.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: forgerise-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: forgerise
+      POSTGRES_PASSWORD: forgerise
+      POSTGRES_DB: forgerise
+    ports:
+      - "5432:5432"
+    volumes:
+      - forgerise-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgerise"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  forgerise-postgres-data:

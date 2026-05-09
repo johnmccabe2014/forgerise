@@ -1,0 +1,51 @@
+# --- General ---
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+.vscode/
+.idea/
+
+# --- Node / pnpm / Next.js ---
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.eslintcache
+
+# --- .NET ---
+bin/
+obj/
+*.user
+*.suo
+TestResults/
+.vs/
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.crt
+
+# --- Docker ---
+*.local
+
+# --- Kubernetes / infra (real values never committed) ---
+infra/k8s/secrets.*.yaml
+!infra/k8s/secrets.example.yaml
+kubeconfig
+*.kubeconfig
+
+# --- Tooling caches ---
+.cache/
+.turbo/
+.parcel-cache/
+.pytest_cache/
+__pycache__/

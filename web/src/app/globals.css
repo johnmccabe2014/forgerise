@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Brand tokens — master prompt §6 */
+:root {
+  --background: #F4F7FA;        /* mist-grey */
+  --foreground: #1F2933;        /* deep-charcoal */
+  --brand-primary: #102A43;     /* forge-navy */
+  --brand-accent: #C97B36;      /* rise-copper */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #102A43;      /* forge-navy */
+    --foreground: #F4F7FA;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

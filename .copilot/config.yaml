@@ -1,0 +1,104 @@
+# Routing config: which agent owns which task / path.
+# Agents read this after master.prompt.md to decide ownership.
+
+defaults:
+  load_order:
+    - .copilot/master.prompt.md
+    - .copilot/config.yaml
+  require_principal_review: true
+  require_tests: true
+  require_security_scan: true
+
+agents:
+  planner:
+    file: .copilot/agents/planner.md
+    triggers:
+      - "new feature"
+      - "new requirement"
+      - "ambiguous request"
+      - "estimate"
+    outputs: [.copilot/templates/plan.md]
+
+  frontend:
+    file: .copilot/agents/frontend.md
+    paths: ["web/**", "src/ui/**", "**/*.tsx", "**/*.css"]
+    skills: [testing, validation, code-review, observability]
+
+  backend:
+    file: .copilot/agents/backend.md
+    paths: ["api/**", "server/**", "src/server/**", "**/*.sql", "**/*.cs", "**/*.csproj"]
+    skills: [testing, validation, code-review, security-scan, observability]
+
+  devops:
+    file: .copilot/agents/devops.md
+    paths: ["infra/**", "deploy/**", "**/Dockerfile*", "**/*.dockerfile", ".github/workflows/**", "charts/**", "k8s/**"]
+    triggers:
+      - "k3s"
+      - "kubernetes"
+      - "helm"
+      - "github actions"
+      - "self-hosted runner"
+      - "container"
+      - "ingress"
+      - "deployment pipeline"
+    skills: [security-scan, validation, observability, code-review]
+
+  ai-engineer:
+    file: .copilot/agents/ai-engineer.md
+    paths: ["api/prompts/**", "api/evals/**", "**/AiInsights*/**", "**/Ai/**"]
+    triggers:
+      - "prompt"
+      - "LLM"
+      - "OpenAI"
+      - "Azure OpenAI"
+      - "session plan generation"
+      - "drill recommendation"
+      - "readiness summary"
+      - "match pack"
+    skills: [testing, validation, security-scan, observability]
+
+  tester:
+    file: .copilot/agents/tester.md
+    paths: ["**/*.test.*", "**/*.spec.*", "tests/**", "e2e/**"]
+    skills: [testing, validation]
+    owns:
+      - "test strategy"
+      - "coverage thresholds"
+      - "flaky test triage"
+
+  security:
+    file: .copilot/agents/security.md
+    triggers:
+      - "auth"
+      - "authz"
+      - "secret"
+      - "token"
+      - "dependency upgrade"
+      - "user input"
+      - "file upload"
+      - "crypto"
+    skills: [security-scan, code-review]
+    veto: true   # can block any merge
+
+  principal-reviewer:
+    file: .copilot/agents/principal-reviewer.md
+    invoked: "before merge, after every iteration"
+    skills: [code-review, validation]
+    outputs: [.copilot/templates/review.md]
+    final_approver: true
+
+workflows:
+  default: .copilot/workflows/feedback-loop.md
+  feature: .copilot/workflows/new-feature.md
+  bugfix:  .copilot/workflows/bugfix.md
+
+quality_gates:
+  - name: tests-pass
+    blocking: true
+  - name: lint-clean
+    blocking: true
+  - name: security-scan-clean
+    blocking: true
+    severity_block: ["high", "critical"]
+  - name: principal-review-approved
+    blocking: true
