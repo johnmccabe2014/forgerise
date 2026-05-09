@@ -136,6 +136,10 @@ jobs:
     name: apply (self-hosted k3s)
     needs: [resolve, validate]
     runs-on: [self-hosted, forgerise-k3s]
+    env:
+      # The runner runs as `john`; /etc/rancher/k3s/k3s.yaml is 0600 root:root.
+      # Use the user kubeconfig that points to the external API endpoint.
+      KUBECONFIG: /home/john/.kube/config
     environment:
       name: ${{ needs.resolve.outputs.environment }}
       url: https://${{ needs.resolve.outputs.host }}
