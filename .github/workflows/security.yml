@@ -33,17 +33,15 @@ jobs:
   dependency-scan-web:
     name: dependency scan (web / pnpm)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
-        with: { node-version: 20, cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
+        with: { node-version: 20, cache: pnpm, cache-dependency-path: pnpm-lock.yaml }
+      - name: Install
+        run: pnpm install --frozen-lockfile --filter ./web...
       - name: Audit
-        run: |
-          if [ -f package.json ]; then pnpm install --frozen-lockfile && pnpm audit --audit-level=high || exit 1; else echo "skip"; fi
+        run: pnpm --filter ./web audit --audit-level=high
 
   dependency-scan-api:
     name: dependency scan (api / dotnet)

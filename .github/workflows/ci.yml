@@ -16,9 +16,6 @@ jobs:
   web:
     name: web (lint + typecheck + test)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -32,23 +29,19 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: Install (skip if web has no package.json yet)
-        run: |
-          if [ -f package.json ]; then pnpm install --frozen-lockfile; else echo "web/ not scaffolded yet — skipping"; fi
+      - name: Install
+        run: pnpm install --frozen-lockfile --filter ./web...
 
       - name: Lint
-        run: |
-          if [ -f package.json ]; then pnpm lint; else echo "skip"; fi
+        run: pnpm --filter ./web lint
 
       - name: Typecheck
-        run: |
-          if [ -f package.json ]; then pnpm typecheck; else echo "skip"; fi
+        run: pnpm --filter ./web typecheck
 
       - name: Test
-        run: |
-          if [ -f package.json ]; then pnpm test -- --run; else echo "skip"; fi
+        run: pnpm --filter ./web test -- --run
 
   api:
     name: api (build + test)
