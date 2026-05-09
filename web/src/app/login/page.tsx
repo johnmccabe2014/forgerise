@@ -2,6 +2,12 @@ import Link from "next/link";
 import { AuthForm } from "@/components/AuthForm";
 
 export const metadata = { title: "Sign in — ForgeRise" };
+// Render per-request so the CSP nonce minted in middleware matches the
+// nonce Next stamps on its inlined bootstrap script. Static HTML would
+// be baked at build time with a stale/missing nonce and CSP would block
+// hydration, leaving the form to fall back to a native GET that puts
+// the password in the URL.
+export const dynamic = "force-dynamic";
 
 export default function LoginPage() {
   return (

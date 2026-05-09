@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AuthForm } from "@/components/AuthForm";
 
 export const metadata = { title: "Create account — ForgeRise" };
+export const dynamic = "force-dynamic";
 
 export default function RegisterPage() {
   return (

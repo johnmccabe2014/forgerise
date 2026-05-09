@@ -56,6 +56,8 @@ export function AuthForm({ mode }: AuthFormProps) {
   return (
     <form
       onSubmit={onSubmit}
+      method="post"
+      action={`/api/proxy/auth/${mode}`}
       className="w-full max-w-sm space-y-4"
       aria-label={mode === "login" ? "Sign in" : "Create account"}
     >
