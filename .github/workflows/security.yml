@@ -41,7 +41,7 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile --filter ./web...
       - name: Audit
-        run: pnpm --filter ./web audit --audit-level=high
+        run: pnpm audit --audit-level=high
 
   dependency-scan-api:
     name: dependency scan (api / dotnet)

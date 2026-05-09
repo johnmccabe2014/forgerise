@@ -16,7 +16,8 @@
   },
   "pnpm": {
     "overrides": {
-      "cross-spawn": ">=7.0.6"
+      "cross-spawn": ">=7.0.6",
+      "picomatch": ">=4.0.4"
     }
   }
 }

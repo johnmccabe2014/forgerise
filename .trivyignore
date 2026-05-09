@@ -1,0 +1,10 @@
+# Trivy ignore file
+# Format: one CVE/GHSA ID per line. Optionally `<id> exp:YYYY-MM-DD` to expire.
+#
+# IMPORTANT: every entry MUST link to a tracking issue and have an expiry.
+
+# Next.js 14.2.x — no upstream fix in the 14.x line. Tracked migration to
+# Next 15 + React 19. Safe in our use case (no insecure React DEV runtime in
+# production image; standalone build, not running canary).
+GHSA-h25m-26qc-wcjf exp:2026-09-01
+GHSA-q4gf-8mx6-v5v3 exp:2026-09-01
