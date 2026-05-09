@@ -128,12 +128,18 @@ export default async function TeamDetailPage({
               {myRole === "owner" ? "You: Owner" : "You: Coach"}
             </span>
           </p>
-          <p className="mt-2 text-sm">
+          <p className="mt-2 text-sm flex flex-wrap gap-x-4 gap-y-1">
             <Link
               href={`/teams/${team.data.id}/welfare`}
               className="text-rise-copper hover:underline"
             >
               View readiness board →
+            </Link>
+            <Link
+              href={`/teams/${team.data.id}/session-plans`}
+              className="text-rise-copper hover:underline"
+            >
+              Session plans →
             </Link>
           </p>
         </div>
