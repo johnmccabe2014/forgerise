@@ -121,4 +121,45 @@ public class IncidentTriageTests : IClassFixture<ForgeRiseFactory>
             $"/teams/{team.Id}/players/{roster.Id}/incidents/{dto.Id}/acknowledge", null);
         Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
     }
+
+    [Fact]
+    public async Task List_with_status_filter_separates_unread_and_acknowledged()
+    {
+        var coach = await AuthenticatedClient("coach-hist1");
+        var player = await AuthenticatedClient("player-hist1");
+        var team = await CreateTeam(coach, "Wrens", "wrens-hist1");
+
+        // Self-reported incident A — leave unread.
+        var rosterA = await AddPlayer(coach, team.Id, "Self A");
+        var inviteA = await CreateInvite(coach, team.Id, rosterA.Id);
+        (await player.PostAsJsonAsync("/player-invites/redeem", new { code = inviteA.Code }))
+            .EnsureSuccessStatusCode();
+        (await player.PostAsJsonAsync($"/me/players/{rosterA.Id}/incidents",
+            new { severity = (int)IncidentSeverity.Low, summary = "Sore wrist" }))
+            .EnsureSuccessStatusCode();
+
+        // Coach-recorded incident B — auto-acknowledged at creation.
+        var rosterB = await AddPlayer(coach, team.Id, "Coach B");
+        (await coach.PostAsJsonAsync($"/teams/{team.Id}/players/{rosterB.Id}/incidents",
+            new { severity = (int)IncidentSeverity.Medium, summary = "Bumped knee" }))
+            .EnsureSuccessStatusCode();
+
+        var unread = await coach.GetFromJsonAsync<List<IncidentSummaryDto>>(
+            $"/teams/{team.Id}/incidents?status=unread");
+        var unreadRow = Assert.Single(unread!);
+        Assert.True(unreadRow.SubmittedBySelf);
+        Assert.Null(unreadRow.AcknowledgedAt);
+
+        var acked = await coach.GetFromJsonAsync<List<IncidentSummaryDto>>(
+            $"/teams/{team.Id}/incidents?status=acknowledged");
+        var ackedRow = Assert.Single(acked!);
+        Assert.Equal("Bumped knee", ackedRow.Summary);
+        Assert.NotNull(ackedRow.AcknowledgedAt);
+        // Acknowledger name resolves on the history view.
+        Assert.Equal("coach-hist1", ackedRow.AcknowledgedByDisplayName);
+
+        var all = await coach.GetFromJsonAsync<List<IncidentSummaryDto>>(
+            $"/teams/{team.Id}/incidents?status=all");
+        Assert.Equal(2, all!.Count);
+    }
 }

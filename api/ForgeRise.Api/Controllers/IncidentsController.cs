@@ -25,21 +25,50 @@ public sealed class IncidentsController : ControllerBase
         _time = time;
     }
 
-    private static IncidentSummaryDto ToSummary(IncidentReport i) =>
-        new(i.Id, i.PlayerId, i.OccurredAt, i.Severity, i.Summary, i.SubmittedBySelf, i.AcknowledgedAt);
+    private static IncidentSummaryDto ToSummary(IncidentReport i, string? acknowledgedByDisplayName = null) =>
+        new(i.Id, i.PlayerId, i.OccurredAt, i.Severity, i.Summary, i.SubmittedBySelf, i.AcknowledgedAt, acknowledgedByDisplayName);
 
     [HttpGet("incidents")]
-    public async Task<IActionResult> List(Guid teamId, CancellationToken ct)
+    public async Task<IActionResult> List(Guid teamId, [FromQuery] string? status, CancellationToken ct)
     {
         var (_, err) = await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
         if (err is not null) return err;
 
-        var rows = await _db.IncidentReports
-            .Where(i => _db.Players.Any(p => p.Id == i.PlayerId && p.TeamId == teamId))
-            .OrderByDescending(i => i.OccurredAt)
-            .ToListAsync(ct);
+        var q = _db.IncidentReports
+            .Where(i => i.DeletedAt == null
+                     && _db.Players.Any(p => p.Id == i.PlayerId && p.TeamId == teamId));
 
-        return Ok(rows.Select(ToSummary));
+        // Filter shape: "unread" = self-reported and not yet acknowledged;
+        // "acknowledged" = acknowledged at any time; default "all" returns everything.
+        switch ((status ?? "all").ToLowerInvariant())
+        {
+            case "unread":
+                q = q.Where(i => i.SubmittedBySelf && i.AcknowledgedAt == null);
+                break;
+            case "acknowledged":
+                q = q.Where(i => i.AcknowledgedAt != null);
+                break;
+        }
+
+        var rows = await q.OrderByDescending(i => i.OccurredAt).ToListAsync(ct);
+
+        // Resolve acknowledger names in one query rather than one-per-row.
+        var ackUserIds = rows
+            .Where(r => r.AcknowledgedByUserId is not null)
+            .Select(r => r.AcknowledgedByUserId!.Value)
+            .Distinct()
+            .ToList();
+        var nameById = ackUserIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await _db.Users
+                .Where(u => ackUserIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+
+        return Ok(rows.Select(r =>
+        {
+            var name = r.AcknowledgedByUserId is { } id && nameById.TryGetValue(id, out var n) ? n : null;
+            return ToSummary(r, name);
+        }));
     }
 
     [HttpGet("players/{playerId:guid}/incidents")]
@@ -53,7 +82,7 @@ public sealed class IncidentsController : ControllerBase
             .OrderByDescending(i => i.OccurredAt)
             .ToListAsync(ct);
 
-        return Ok(rows.Select(ToSummary));
+        return Ok(rows.Select(r => ToSummary(r)));
     }
 
     [HttpPost("players/{playerId:guid}/incidents")]

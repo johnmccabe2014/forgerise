@@ -157,6 +157,14 @@ export default async function WelfareDashboardPage({
             {teamResp.data.name} — {rows.length} of {roster.length} player
             {roster.length === 1 ? "" : "s"} reported.
           </p>
+          <p className="mt-2 text-sm">
+            <Link
+              href={`/teams/${teamId}/welfare/incidents?status=acknowledged`}
+              className="text-rise-copper hover:underline"
+            >
+              View incident history →
+            </Link>
+          </p>
         </div>
 
         <section
