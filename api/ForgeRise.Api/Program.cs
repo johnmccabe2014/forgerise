@@ -149,6 +149,28 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
 
 var app = builder.Build();
 
+// --- Apply EF migrations on startup (non-Testing only).
+// Single-instance deploys, so simple inline migration is fine; for HA
+// promote this to a Job/init-container.
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var migLogger = scope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>().CreateLogger("Startup.Migrate");
+    try
+    {
+        migLogger.LogInformation("Applying EF Core migrations...");
+        await db.Database.MigrateAsync();
+        migLogger.LogInformation("EF Core migrations applied.");
+    }
+    catch (Exception ex)
+    {
+        migLogger.LogError(ex, "EF Core migration failed at startup");
+        throw;
+    }
+}
+
 // --- Pipeline ---
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
