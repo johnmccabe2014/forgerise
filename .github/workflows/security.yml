@@ -39,7 +39,6 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
-        with: { version: 9 }
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with: { node-version: 20, cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
       - name: Audit
@@ -78,9 +77,18 @@ jobs:
         language: [javascript-typescript, csharp]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Setup .NET (csharp only)
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
+        with:
+          dotnet-version: 9.0.x
       - uses: github/codeql-action/init@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.27.0
         with:
           languages: ${{ matrix.language }}
+      - name: Build (csharp only — CodeQL needs compilation)
+        if: matrix.language == 'csharp'
+        working-directory: api
+        run: dotnet build ForgeRise.sln --configuration Release
       - uses: github/codeql-action/analyze@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.27.0
         with:
           category: "/language:${{ matrix.language }}"
@@ -91,7 +99,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Hadolint
-        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
+        uses: hadolint/hadolint-action@263435318d21b8e681c14492fe198d362a7d2c83 # v3.3.0
         with:
           recursive: true
           ignore: DL3008,DL3018 # apt/apk version pins handled per-image
