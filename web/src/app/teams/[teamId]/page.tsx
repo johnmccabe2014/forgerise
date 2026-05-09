@@ -128,6 +128,14 @@ export default async function TeamDetailPage({
               {myRole === "owner" ? "You: Owner" : "You: Coach"}
             </span>
           </p>
+          <p className="mt-2 text-sm">
+            <Link
+              href={`/teams/${team.data.id}/welfare`}
+              className="text-rise-copper hover:underline"
+            >
+              View readiness board →
+            </Link>
+          </p>
         </div>
 
         <section aria-labelledby="coaches-heading" className="space-y-3">
