@@ -48,12 +48,12 @@ export const JERSEY_NUMBERS: readonly number[] = Array.from(
   (_, i) => i + 1,
 );
 
-const FORWARD_NAMES = new Set(
-  RUGBY_POSITIONS.filter((p) => p.group === "forward").map((p) => p.name),
-);
-const BACK_NAMES = new Set(
-  RUGBY_POSITIONS.filter((p) => p.group === "back").map((p) => p.name),
-);
+const FORWARD_NAMES: readonly string[] = RUGBY_POSITIONS
+  .filter((p) => p.group === "forward")
+  .map((p) => p.name);
+const BACK_NAMES: readonly string[] = RUGBY_POSITIONS
+  .filter((p) => p.group === "back")
+  .map((p) => p.name);
 
 /**
  * Classify a stored player position into "forward", "back", or null when
@@ -66,11 +66,11 @@ export function classifyPosition(
 ): PositionGroup | null {
   if (!position) return null;
   const normalized = position.trim();
-  if (FORWARD_NAMES.has(normalized)) return "forward";
-  if (BACK_NAMES.has(normalized)) return "back";
+  if (FORWARD_NAMES.includes(normalized)) return "forward";
+  if (BACK_NAMES.includes(normalized)) return "back";
   // Case-insensitive fallback for legacy data.
   const lower = normalized.toLowerCase();
-  for (const n of FORWARD_NAMES) if (n.toLowerCase() === lower) return "forward";
-  for (const n of BACK_NAMES) if (n.toLowerCase() === lower) return "back";
+  if (FORWARD_NAMES.some((n) => n.toLowerCase() === lower)) return "forward";
+  if (BACK_NAMES.some((n) => n.toLowerCase() === lower)) return "back";
   return null;
 }
