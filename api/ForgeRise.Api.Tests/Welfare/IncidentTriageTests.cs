@@ -191,4 +191,46 @@ public class IncidentTriageTests : IClassFixture<ForgeRiseFactory>
         Assert.NotNull(row.AcknowledgedAt);
         Assert.Equal("coach-tl1", row.AcknowledgedByDisplayName);
     }
+
+    [Fact]
+    public async Task Player_self_view_shows_acknowledgement_status()
+    {
+        var coach = await AuthenticatedClient("coach-pa1");
+        var player = await AuthenticatedClient("player-pa1");
+        var team = await CreateTeam(coach, "Owls", "owls-pa1");
+        var roster = await AddPlayer(coach, team.Id, "Pat Self");
+        var invite = await CreateInvite(coach, team.Id, roster.Id);
+        (await player.PostAsJsonAsync("/player-invites/redeem", new { code = invite.Code }))
+            .EnsureSuccessStatusCode();
+
+        var post = await player.PostAsJsonAsync($"/me/players/{roster.Id}/incidents",
+            new { severity = (int)IncidentSeverity.Low, summary = "Sore knee" });
+        post.EnsureSuccessStatusCode();
+        var created = (await post.Content.ReadFromJsonAsync<MyIncidentDto>())!;
+        Assert.Null(created.AcknowledgedAt);
+        Assert.Null(created.AcknowledgedByDisplayName);
+
+        // Before coach acknowledges, the player's own view shows no ack.
+        var beforeList = await player.GetFromJsonAsync<List<MyIncidentDto>>(
+            $"/me/players/{roster.Id}/incidents");
+        var pending = Assert.Single(beforeList!);
+        Assert.Null(pending.AcknowledgedAt);
+
+        (await coach.PostAsync(
+            $"/teams/{team.Id}/players/{roster.Id}/incidents/{created.Id}/acknowledge", null))
+            .EnsureSuccessStatusCode();
+
+        // After acknowledge, both list and item endpoints surface the
+        // coach's display name + timestamp on the player side.
+        var afterList = await player.GetFromJsonAsync<List<MyIncidentDto>>(
+            $"/me/players/{roster.Id}/incidents");
+        var acked = Assert.Single(afterList!);
+        Assert.NotNull(acked.AcknowledgedAt);
+        Assert.Equal("coach-pa1", acked.AcknowledgedByDisplayName);
+
+        var single = await player.GetFromJsonAsync<MyIncidentDto>(
+            $"/me/players/{roster.Id}/incidents/{created.Id}");
+        Assert.NotNull(single!.AcknowledgedAt);
+        Assert.Equal("coach-pa1", single.AcknowledgedByDisplayName);
+    }
 }

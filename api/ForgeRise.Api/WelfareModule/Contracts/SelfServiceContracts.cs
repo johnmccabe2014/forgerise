@@ -79,7 +79,9 @@ public sealed record MyIncidentDto(
     IncidentSeverity Severity,
     string Summary,
     string? Notes,
-    bool SubmittedBySelf);
+    bool SubmittedBySelf,
+    DateTimeOffset? AcknowledgedAt = null,
+    string? AcknowledgedByDisplayName = null);
 
 public sealed class CreateSelfIncidentRequest
 {

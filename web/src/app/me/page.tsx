@@ -32,6 +32,30 @@ interface MyCheckInDto {
   submittedBySelf: boolean;
 }
 
+interface MyIncidentDto {
+  id: string;
+  occurredAt: string;
+  severity: number;
+  summary: string;
+  acknowledgedAt?: string | null;
+  acknowledgedByDisplayName?: string | null;
+}
+
+const SEVERITY_LABELS: Record<number, string> = {
+  0: "Low",
+  1: "Medium",
+  2: "High",
+};
+
+function fmtWhen(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 const CATEGORY_TO_KEY: Record<number, ReadinessCategory> = {
   0: "ready",
   1: "monitor",
@@ -63,6 +87,15 @@ export default async function MePage() {
         `/me/players/${p.playerId}/checkins`,
       );
       return r.ok && Array.isArray(r.data) ? r.data.slice(0, 7) : [];
+    }),
+  );
+
+  const incidents = await Promise.all(
+    players.map(async (p) => {
+      const r = await serverFetchApi<MyIncidentDto[]>(
+        `/me/players/${p.playerId}/incidents`,
+      );
+      return r.ok && Array.isArray(r.data) ? r.data.slice(0, 5) : [];
     }),
   );
 
@@ -124,6 +157,7 @@ export default async function MePage() {
             <ul className="space-y-6">
               {players.map((p, idx) => {
                 const history = histories[idx] ?? [];
+                const myIncidents = incidents[idx] ?? [];
                 return (
                 <li
                   key={p.playerId}
@@ -162,6 +196,50 @@ export default async function MePage() {
                             <ReadinessBadge
                               category={CATEGORY_TO_KEY[h.category] ?? "monitor"}
                             />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="border-t border-slate/10 pt-4">
+                    <h3 className="font-heading text-deep-charcoal mb-3">
+                      My recent reports
+                    </h3>
+                    {myIncidents.length === 0 ? (
+                      <p className="text-sm text-slate">
+                        You haven&apos;t reported anything yet.
+                      </p>
+                    ) : (
+                      <ul
+                        data-testid={`my-incidents-${p.playerId}`}
+                        className="divide-y divide-slate/10"
+                      >
+                        {myIncidents.map((inc) => (
+                          <li key={inc.id} className="py-2 space-y-0.5">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm text-deep-charcoal">
+                                {fmtWhen(inc.occurredAt)} ·{" "}
+                                {SEVERITY_LABELS[inc.severity] ?? "Low"}
+                              </span>
+                              {inc.acknowledgedAt ? (
+                                <span className="rounded-pill bg-readiness-ready/15 text-readiness-ready px-2 py-0.5 text-xs">
+                                  Acknowledged
+                                </span>
+                              ) : (
+                                <span className="rounded-pill bg-readiness-monitor/15 text-readiness-monitor px-2 py-0.5 text-xs">
+                                  Awaiting review
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-slate">{inc.summary}</p>
+                            {inc.acknowledgedAt && (
+                              <p className="text-xs text-slate">
+                                Acknowledged {fmtWhen(inc.acknowledgedAt)}
+                                {inc.acknowledgedByDisplayName
+                                  ? ` by ${inc.acknowledgedByDisplayName}`
+                                  : ""}
+                              </p>
+                            )}
                           </li>
                         ))}
                       </ul>

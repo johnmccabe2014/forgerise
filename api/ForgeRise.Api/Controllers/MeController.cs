@@ -160,7 +160,24 @@ public sealed class MeController : ControllerBase
             .OrderByDescending(i => i.OccurredAt)
             .ToListAsync(ct);
 
-        return Ok(incidents.Select(ToIncidentDto));
+        // Mirror the coach view: include who acknowledged the report and when,
+        // so the player can see their self-reports were actually triaged.
+        var ackUserIds = incidents
+            .Where(r => r.AcknowledgedByUserId is not null)
+            .Select(r => r.AcknowledgedByUserId!.Value)
+            .Distinct()
+            .ToArray();
+        var nameById = ackUserIds.Length == 0
+            ? new Dictionary<Guid, string>()
+            : await _db.Users
+                .Where(u => ackUserIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+
+        return Ok(incidents.Select(i =>
+        {
+            var name = i.AcknowledgedByUserId is { } id && nameById.TryGetValue(id, out var n) ? n : null;
+            return ToIncidentDto(i, name);
+        }));
     }
 
     [HttpPost("players/{playerId:guid}/incidents")]
@@ -219,9 +236,18 @@ public sealed class MeController : ControllerBase
         var incident = await _db.IncidentReports
             .FirstOrDefaultAsync(i => i.Id == id && i.PlayerId == playerId && i.DeletedAt == null, ct);
         if (incident is null) return NotFound();
-        return Ok(ToIncidentDto(incident));
+        string? name = null;
+        if (incident.AcknowledgedByUserId is { } ackUserId)
+        {
+            name = await _db.Users
+                .Where(u => u.Id == ackUserId)
+                .Select(u => u.DisplayName)
+                .FirstOrDefaultAsync(ct);
+        }
+        return Ok(ToIncidentDto(incident, name));
     }
 
-    private static MyIncidentDto ToIncidentDto(IncidentReport i) =>
-        new(i.Id, i.PlayerId, i.OccurredAt, i.Severity, i.Summary, i.Notes, i.SubmittedBySelf);
+    private static MyIncidentDto ToIncidentDto(IncidentReport i, string? acknowledgedByDisplayName = null) =>
+        new(i.Id, i.PlayerId, i.OccurredAt, i.Severity, i.Summary, i.Notes, i.SubmittedBySelf,
+            i.AcknowledgedAt, acknowledgedByDisplayName);
 }
