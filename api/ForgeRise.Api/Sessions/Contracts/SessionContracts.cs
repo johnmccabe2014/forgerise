@@ -75,4 +75,5 @@ public sealed record SessionPlanDto(
     string Summary,
     IReadOnlyList<SessionPlanBlockDto> Blocks,
     IReadOnlyList<SessionPlanReadinessRow> ReadinessSnapshot,
-    IReadOnlyList<SessionPlanRecommendationDto> Recommendations);
+    IReadOnlyList<SessionPlanRecommendationDto> Recommendations,
+    int RecentSelfIncidentCount = 0);

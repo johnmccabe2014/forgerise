@@ -45,7 +45,7 @@ public sealed class SessionPlansController : ControllerBase
         var recs = JsonSerializer.Deserialize<List<SessionPlanRecommendationDto>>(plan.RecommendationsJson, JsonOpts)
                    ?? new List<SessionPlanRecommendationDto>();
         return new SessionPlanDto(plan.Id, plan.TeamId, plan.GeneratedAt, plan.BasedOnSessionId,
-            plan.Focus, plan.Summary, blocks, snapshot, recs);
+            plan.Focus, plan.Summary, blocks, snapshot, recs, plan.RecentSelfIncidentCount);
     }
 
     [HttpGet]
@@ -117,11 +117,12 @@ public sealed class SessionPlansController : ControllerBase
         // has self-reported an incident in the last 14 days. Provenance only — never
         // raw welfare detail. Master prompt §9.
         var incidentCutoff = _time.GetUtcNow().AddDays(-14);
-        var hasRecentSelfIncident = roster.Count > 0 && await _db.IncidentReports
-            .AnyAsync(i => roster.Contains(i.PlayerId)
+        var recentSelfIncidentCount = roster.Count == 0 ? 0 : await _db.IncidentReports
+            .CountAsync(i => roster.Contains(i.PlayerId)
                        && i.SubmittedBySelf
                        && i.DeletedAt == null
                        && i.CreatedAt >= incidentCutoff, ct);
+        var hasRecentSelfIncident = recentSelfIncidentCount > 0;
 
         var ctx = new SessionPlanContext(
             TeamId: teamId,
@@ -152,6 +153,7 @@ public sealed class SessionPlansController : ControllerBase
                 generated.Recommendations.Select(r => new SessionPlanRecommendationDto(
                     r.DrillId, r.Title, r.Description, r.DurationMinutes, r.Rationale, r.Tags)),
                 JsonOpts),
+            RecentSelfIncidentCount = recentSelfIncidentCount,
         };
         _db.SessionPlans.Add(entity);
         await _db.SaveChangesAsync(ct);

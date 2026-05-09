@@ -166,6 +166,7 @@ public sealed class AppDbContext : DbContext
             e.Property(x => x.PlanJson).IsRequired();
             e.Property(x => x.ReadinessSnapshotJson).IsRequired();
             e.Property(x => x.RecommendationsJson).IsRequired().HasDefaultValue("[]");
+            e.Property(x => x.RecentSelfIncidentCount).HasDefaultValue(0);
             e.HasOne(x => x.Team)
                 .WithMany()
                 .HasForeignKey(x => x.TeamId)

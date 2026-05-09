@@ -126,4 +126,47 @@ public class SessionPlanEndpointsTests : IClassFixture<ForgeRiseFactory>
         Assert.Contains(dto.Recommendations, r => r.DrillId == "scrum-engage");
         Assert.All(dto.Recommendations, r => Assert.False(string.IsNullOrWhiteSpace(r.Rationale)));
     }
+
+    [Fact]
+    public async Task Generated_plan_surfaces_recent_self_incident_count()
+    {
+        var coach = _factory.CreateDefaultClient(new CookieJarHandler());
+        await coach.PostAsJsonAsync("/auth/register", new
+        {
+            email = $"coach-rsi-{Guid.NewGuid():n}@example.com",
+            password = "Correct horse battery staple",
+            displayName = "coach-rsi",
+        });
+        var t = await coach.PostAsJsonAsync("/teams", new { name = "Squad", code = $"rsi-{Guid.NewGuid():n}".Substring(0, 12) });
+        var team = (await t.Content.ReadFromJsonAsync<ForgeRise.Api.Teams.Contracts.TeamDto>())!;
+
+        var p = await coach.PostAsJsonAsync($"/teams/{team.Id}/players", new { displayName = "Sam Self" });
+        var player = (await p.Content.ReadFromJsonAsync<ForgeRise.Api.Teams.Contracts.PlayerDto>())!;
+
+        // Player redeems their invite then self-reports two incidents.
+        var inv = await coach.PostAsync($"/teams/{team.Id}/players/{player.Id}/invites", null);
+        var invite = (await inv.Content.ReadFromJsonAsync<ForgeRise.Api.WelfareModule.Contracts.PlayerInviteDto>())!;
+        var playerClient = _factory.CreateDefaultClient(new CookieJarHandler());
+        await playerClient.PostAsJsonAsync("/auth/register", new
+        {
+            email = $"player-rsi-{Guid.NewGuid():n}@example.com",
+            password = "Correct horse battery staple",
+            displayName = "player-rsi",
+        });
+        (await playerClient.PostAsJsonAsync("/player-invites/redeem", new { code = invite.Code })).EnsureSuccessStatusCode();
+        (await playerClient.PostAsJsonAsync($"/me/players/{player.Id}/incidents",
+            new { severity = (int)IncidentSeverity.Low, summary = "Stiff back" })).EnsureSuccessStatusCode();
+        (await playerClient.PostAsJsonAsync($"/me/players/{player.Id}/incidents",
+            new { severity = (int)IncidentSeverity.Medium, summary = "Sore shoulder" })).EnsureSuccessStatusCode();
+
+        var resp = await coach.PostAsJsonAsync($"/teams/{team.Id}/session-plans/generate", new { });
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+        var dto = (await resp.Content.ReadFromJsonAsync<SessionPlanDto>())!;
+        Assert.Equal(2, dto.RecentSelfIncidentCount);
+
+        // Roundtrip via Get.
+        var fetched = await coach.GetFromJsonAsync<SessionPlanDto>(
+            $"/teams/{team.Id}/session-plans/{dto.Id}");
+        Assert.Equal(2, fetched!.RecentSelfIncidentCount);
+    }
 }

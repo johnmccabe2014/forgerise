@@ -35,6 +35,7 @@ interface SessionPlanDto {
   blocks: PlanBlockDto[];
   readinessSnapshot: ReadinessRow[];
   recommendations: RecommendationDto[];
+  recentSelfIncidentCount?: number;
 }
 
 const SAFE_CATEGORY_TO_READINESS: Record<number, ReadinessCategory> = {
@@ -222,6 +223,20 @@ export default async function SessionPlanDetailPage({
           >
             Suggested drills
           </h2>
+          {(plan.recentSelfIncidentCount ?? 0) > 0 && (
+            <p
+              data-testid="plan-rationale-banner"
+              className="rounded-card border border-readiness-modify/30 bg-readiness-modify/10 p-3 text-sm text-deep-charcoal"
+            >
+              Contact reduced because{" "}
+              <strong>
+                {plan.recentSelfIncidentCount} player self-report
+                {plan.recentSelfIncidentCount === 1 ? "" : "s"}
+              </strong>{" "}
+              landed in the last 14 days. Recovery and decision drills are
+              prioritised below.
+            </p>
+          )}
           {(plan.recommendations ?? []).length === 0 ? (
             <div className="rounded-card bg-white p-6 shadow-soft text-sm text-slate">
               No drill suggestions for this plan yet.

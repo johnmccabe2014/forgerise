@@ -19,4 +19,12 @@ public sealed class SessionPlan
     public string PlanJson { get; set; } = "[]";
     public string ReadinessSnapshotJson { get; set; } = "[]";
     public string RecommendationsJson { get; set; } = "[]";
+
+    /// <summary>
+    /// Number of player self-reported incidents in the lookback window at
+    /// generation time. Surfaced as the rationale for any contact reduction
+    /// the recommender applied. Always &gt;= 0; default 0 keeps the column
+    /// backward compatible.
+    /// </summary>
+    public int RecentSelfIncidentCount { get; set; }
 }
