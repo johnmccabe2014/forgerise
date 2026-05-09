@@ -36,4 +36,11 @@ public sealed class SessionPlan
     public DateTimeOffset? AdoptedAt { get; set; }
     public Guid? AdoptedByUserId { get; set; }
     public Guid? AdoptedSessionId { get; set; }
+
+    /// <summary>
+    /// When set, this plan is pinned by a coach. Pinned plans float to the
+    /// top of the listing so a "preferred" generated plan can be kept around
+    /// across regenerations. Toggle via the pin endpoint.
+    /// </summary>
+    public DateTimeOffset? PinnedAt { get; set; }
 }

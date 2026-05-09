@@ -46,7 +46,7 @@ public sealed class SessionPlansController : ControllerBase
                    ?? new List<SessionPlanRecommendationDto>();
         return new SessionPlanDto(plan.Id, plan.TeamId, plan.GeneratedAt, plan.BasedOnSessionId,
             plan.Focus, plan.Summary, blocks, snapshot, recs, plan.RecentSelfIncidentCount,
-            plan.AdoptedAt, plan.AdoptedSessionId);
+            plan.AdoptedAt, plan.AdoptedSessionId, plan.PinnedAt);
     }
 
     [HttpGet]
@@ -57,7 +57,10 @@ public sealed class SessionPlansController : ControllerBase
 
         var plans = await _db.SessionPlans
             .Where(p => p.TeamId == teamId)
-            .OrderByDescending(p => p.GeneratedAt)
+            // Pinned plans float to the top, then most recent first.
+            .OrderByDescending(p => p.PinnedAt != null)
+            .ThenByDescending(p => p.PinnedAt)
+            .ThenByDescending(p => p.GeneratedAt)
             .ToListAsync(ct);
 
         return Ok(plans.Select(Materialise));
@@ -235,6 +238,24 @@ public sealed class SessionPlansController : ControllerBase
         await _db.SaveChangesAsync(ct);
 
         _log.LogInformation("session_plan.adopted {PlanId} {SessionId} {TeamId}", plan.Id, session.Id, teamId);
+        return Ok(Materialise(plan));
+    }
+
+    /// <summary>
+    /// Toggle pin state on a plan. Pinned plans float to the top of the
+    /// listing across regenerations.
+    /// </summary>
+    [HttpPost("{id:guid}/pin")]
+    public async Task<IActionResult> TogglePin(Guid teamId, Guid id, CancellationToken ct)
+    {
+        var (_, err) = await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
+        if (err is not null) return err;
+
+        var plan = await _db.SessionPlans.FirstOrDefaultAsync(p => p.Id == id && p.TeamId == teamId, ct);
+        if (plan is null) return NotFound();
+
+        plan.PinnedAt = plan.PinnedAt is null ? _time.GetUtcNow() : null;
+        await _db.SaveChangesAsync(ct);
         return Ok(Materialise(plan));
     }
 }

@@ -17,6 +17,7 @@ interface SessionPlanRow {
   summary: string;
   blocks: { intensity: string }[];
   readinessSnapshot: { playerId: string; category: number }[];
+  pinnedAt?: string | null;
 }
 
 const INTENSITY_STYLE: Record<string, string> = {
@@ -126,6 +127,15 @@ export default async function SessionPlansListPage({
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="font-medium text-deep-charcoal truncate">
+                            {p.pinnedAt && (
+                              <span
+                                aria-label="pinned"
+                                data-testid={`plan-pinned-${p.id}`}
+                                className="mr-1 text-rise-copper"
+                              >
+                                ★
+                              </span>
+                            )}
                             {p.focus}
                           </p>
                           <p className="text-xs text-slate">

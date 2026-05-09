@@ -79,7 +79,8 @@ public sealed record SessionPlanDto(
     IReadOnlyList<SessionPlanRecommendationDto> Recommendations,
     int RecentSelfIncidentCount = 0,
     DateTimeOffset? AdoptedAt = null,
-    Guid? AdoptedSessionId = null);
+    Guid? AdoptedSessionId = null,
+    DateTimeOffset? PinnedAt = null);
 
 public sealed class AdoptSessionPlanRequest
 {

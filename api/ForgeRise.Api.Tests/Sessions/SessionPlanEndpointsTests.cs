@@ -217,4 +217,39 @@ public class SessionPlanEndpointsTests : IClassFixture<ForgeRiseFactory>
             });
         Assert.Equal(HttpStatusCode.BadRequest, again.StatusCode);
     }
+
+    [Fact]
+    public async Task Pin_floats_plan_to_top_of_listing_and_toggles_off()
+    {
+        var (client, teamId, _) = await Seed("pin1");
+
+        var first = (await (await client.PostAsJsonAsync(
+            $"/teams/{teamId}/session-plans/generate", new { focus = "First" }))
+            .Content.ReadFromJsonAsync<SessionPlanDto>())!;
+        var second = (await (await client.PostAsJsonAsync(
+            $"/teams/{teamId}/session-plans/generate", new { focus = "Second" }))
+            .Content.ReadFromJsonAsync<SessionPlanDto>())!;
+
+        // Newest first by default.
+        var listed = await client.GetFromJsonAsync<List<SessionPlanDto>>(
+            $"/teams/{teamId}/session-plans");
+        Assert.Equal(second.Id, listed![0].Id);
+
+        var pin = await client.PostAsync(
+            $"/teams/{teamId}/session-plans/{first.Id}/pin", content: null);
+        pin.EnsureSuccessStatusCode();
+        var pinned = (await pin.Content.ReadFromJsonAsync<SessionPlanDto>())!;
+        Assert.NotNull(pinned.PinnedAt);
+
+        listed = await client.GetFromJsonAsync<List<SessionPlanDto>>(
+            $"/teams/{teamId}/session-plans");
+        Assert.Equal(first.Id, listed![0].Id);
+
+        // Toggling clears the pin.
+        var unpin = await client.PostAsync(
+            $"/teams/{teamId}/session-plans/{first.Id}/pin", content: null);
+        unpin.EnsureSuccessStatusCode();
+        var unpinned = (await unpin.Content.ReadFromJsonAsync<SessionPlanDto>())!;
+        Assert.Null(unpinned.PinnedAt);
+    }
 }

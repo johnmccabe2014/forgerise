@@ -4,6 +4,7 @@ import { serverFetchApi } from "@/lib/serverApi";
 import { READINESS_LABELS, type ReadinessCategory } from "@/types/welfare";
 import { RegeneratePlanButton } from "@/components/RegeneratePlanButton";
 import { AdoptPlanForm } from "@/components/AdoptPlanForm";
+import { PinPlanButton } from "@/components/PinPlanButton";
 
 interface PlanBlockDto {
   block: string;
@@ -40,6 +41,7 @@ interface SessionPlanDto {
   recentSelfIncidentCount?: number;
   adoptedAt?: string | null;
   adoptedSessionId?: string | null;
+  pinnedAt?: string | null;
 }
 
 const SAFE_CATEGORY_TO_READINESS: Record<number, ReadinessCategory> = {
@@ -181,6 +183,11 @@ export default async function SessionPlanDetailPage({
               <AdoptPlanForm teamId={teamId} planId={plan.id} />
             )}
             <RegeneratePlanButton teamId={teamId} focus={plan.focus} />
+            <PinPlanButton
+              teamId={teamId}
+              planId={plan.id}
+              pinned={Boolean(plan.pinnedAt)}
+            />
           </div>
         </div>
 
