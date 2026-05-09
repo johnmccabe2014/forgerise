@@ -52,6 +52,7 @@ interface IncidentSummaryDto {
   summary: string;
   submittedBySelf: boolean;
   acknowledgedAt: string | null;
+  acknowledgedByDisplayName?: string | null;
 }
 
 const SAFE_CATEGORY_TO_READINESS: Record<number, ReadinessCategory> = {
@@ -311,16 +312,28 @@ export default async function PlayerProfilePage({
               {incidents.map((i) => (
                 <li
                   key={i.id}
-                  className="flex items-center justify-between gap-4 py-2"
+                  className="flex items-start justify-between gap-4 py-3"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2 min-w-0">
                       <p className="text-sm text-deep-charcoal truncate">
                         {i.summary}
                       </p>
                       {i.submittedBySelf && <SelfSubmittedPill />}
                     </div>
-                    <p className="text-xs text-slate">{fmtDate(i.occurredAt)}</p>
+                    <p className="text-xs text-slate">
+                      {fmtDate(i.occurredAt)}
+                    </p>
+                    {i.acknowledgedAt ? (
+                      <p className="text-xs text-readiness-ready">
+                        Acknowledged {fmtDate(i.acknowledgedAt)}
+                        {i.acknowledgedByDisplayName
+                          ? ` by ${i.acknowledgedByDisplayName}`
+                          : ""}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-rise-copper">Needs review</p>
+                    )}
                   </div>
                   <span
                     className={`shrink-0 inline-flex items-center rounded-card border px-2 py-1 text-xs font-medium ${SEVERITY_STYLE[i.severity] ?? ""}`}

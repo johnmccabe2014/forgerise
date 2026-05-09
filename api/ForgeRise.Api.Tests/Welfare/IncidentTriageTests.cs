@@ -162,4 +162,33 @@ public class IncidentTriageTests : IClassFixture<ForgeRiseFactory>
             $"/teams/{team.Id}/incidents?status=all");
         Assert.Equal(2, all!.Count);
     }
+
+    [Fact]
+    public async Task Player_incident_timeline_includes_acknowledger_name()
+    {
+        var coach = await AuthenticatedClient("coach-tl1");
+        var player = await AuthenticatedClient("player-tl1");
+        var team = await CreateTeam(coach, "Eagles", "eagles-tl1");
+        var roster = await AddPlayer(coach, team.Id, "Sam Self");
+
+        // Player self-reports; coach acknowledges.
+        var invite = await CreateInvite(coach, team.Id, roster.Id);
+        (await player.PostAsJsonAsync("/player-invites/redeem", new { code = invite.Code }))
+            .EnsureSuccessStatusCode();
+        var post = await player.PostAsJsonAsync($"/me/players/{roster.Id}/incidents",
+            new { severity = (int)IncidentSeverity.Low, summary = "Tight calf" });
+        post.EnsureSuccessStatusCode();
+        var created = (await post.Content.ReadFromJsonAsync<IncidentSummaryDto>())!;
+
+        (await coach.PostAsync(
+            $"/teams/{team.Id}/players/{roster.Id}/incidents/{created.Id}/acknowledge", null))
+            .EnsureSuccessStatusCode();
+
+        var timeline = await coach.GetFromJsonAsync<List<IncidentSummaryDto>>(
+            $"/teams/{team.Id}/players/{roster.Id}/incidents");
+        var row = Assert.Single(timeline!);
+        Assert.Equal("Tight calf", row.Summary);
+        Assert.NotNull(row.AcknowledgedAt);
+        Assert.Equal("coach-tl1", row.AcknowledgedByDisplayName);
+    }
 }

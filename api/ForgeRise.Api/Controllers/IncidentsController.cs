@@ -82,7 +82,24 @@ public sealed class IncidentsController : ControllerBase
             .OrderByDescending(i => i.OccurredAt)
             .ToListAsync(ct);
 
-        return Ok(rows.Select(r => ToSummary(r)));
+        // Mirror the team-scope list: resolve acknowledger names in one query
+        // so the player profile timeline can show "Acknowledged X by Y".
+        var ackUserIds = rows
+            .Where(r => r.AcknowledgedByUserId is not null)
+            .Select(r => r.AcknowledgedByUserId!.Value)
+            .Distinct()
+            .ToArray();
+        var nameById = ackUserIds.Length == 0
+            ? new Dictionary<Guid, string>()
+            : await _db.Users
+                .Where(u => ackUserIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+
+        return Ok(rows.Select(r =>
+        {
+            var name = r.AcknowledgedByUserId is { } id && nameById.TryGetValue(id, out var n) ? n : null;
+            return ToSummary(r, name);
+        }));
     }
 
     [HttpPost("players/{playerId:guid}/incidents")]
