@@ -2,10 +2,22 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import {
+  RUGBY_POSITIONS,
+  POSITION_NAMES,
+  JERSEY_NUMBERS,
+} from "@/lib/rugby";
 
 export interface PlayerAddFormProps {
   teamId: string;
 }
+
+const FORWARD_POSITIONS = POSITION_NAMES.filter((name) =>
+  RUGBY_POSITIONS.some((p) => p.name === name && p.group === "forward"),
+);
+const BACK_POSITIONS = POSITION_NAMES.filter((name) =>
+  RUGBY_POSITIONS.some((p) => p.name === name && p.group === "back"),
+);
 
 export function PlayerAddForm({ teamId }: PlayerAddFormProps) {
   const router = useRouter();
@@ -79,27 +91,46 @@ export function PlayerAddForm({ teamId }: PlayerAddFormProps) {
         <label htmlFor="p-jersey" className="block text-xs font-medium text-slate">
           #
         </label>
-        <input
+        <select
           id="p-jersey"
-          inputMode="numeric"
-          pattern="[0-9]*"
           value={jersey}
           onChange={(e) => setJersey(e.target.value)}
-          maxLength={3}
-          className="mt-1 w-full rounded-xl border border-slate/30 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rise-copper"
-        />
+          className="mt-1 w-full rounded-xl border border-slate/30 bg-white px-3 py-2 text-deep-charcoal focus:outline-none focus:ring-2 focus:ring-rise-copper"
+        >
+          <option value="">—</option>
+          {JERSEY_NUMBERS.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
       </div>
-      <div className="w-40">
+      <div className="w-56">
         <label htmlFor="p-pos" className="block text-xs font-medium text-slate">
           Position
         </label>
-        <input
+        <select
           id="p-pos"
           value={position}
           onChange={(e) => setPosition(e.target.value)}
-          maxLength={40}
-          className="mt-1 w-full rounded-xl border border-slate/30 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rise-copper"
-        />
+          className="mt-1 w-full rounded-xl border border-slate/30 bg-white px-3 py-2 text-deep-charcoal focus:outline-none focus:ring-2 focus:ring-rise-copper"
+        >
+          <option value="">—</option>
+          <optgroup label="Forwards">
+            {FORWARD_POSITIONS.map((name) => (
+              <option key={`f-${name}`} value={name}>
+                {name}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Backs">
+            {BACK_POSITIONS.map((name) => (
+              <option key={`b-${name}`} value={name}>
+                {name}
+              </option>
+            ))}
+          </optgroup>
+        </select>
       </div>
       <button
         type="submit"

@@ -2,7 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Brand tokens — master prompt §6 */
+/* Brand tokens — master prompt §6.
+ * The app is light-themed by design; the previous prefers-color-scheme: dark
+ * override flipped --foreground to off-white but inputs/cards stayed white,
+ * which made user input invisible in dark-mode browsers. Until we ship a
+ * real dark theme we lock to the light palette. */
 :root {
   --background: #F4F7FA;        /* mist-grey */
   --foreground: #1F2933;        /* deep-charcoal */
@@ -10,17 +14,24 @@
   --brand-accent: #C97B36;      /* rise-copper */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #102A43;      /* forge-navy */
-    --foreground: #F4F7FA;
-  }
-}
-
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Ensure form controls always render with readable dark text on the light
+ * backgrounds we use throughout the app, regardless of the OS-level dark
+ * preference. */
+input,
+select,
+textarea {
+  color: var(--foreground);
+}
+input::placeholder,
+textarea::placeholder {
+  color: #486581; /* slate */
+  opacity: 1;
 }
 
 @layer utilities {

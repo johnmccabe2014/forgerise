@@ -4,6 +4,7 @@ import { serverFetchApi } from "@/lib/serverApi";
 import { PlayerAddForm } from "@/components/PlayerAddForm";
 import { PlayerRow } from "@/components/PlayerRow";
 import { sessionTypeLabel } from "@/lib/sessionLabels";
+import { classifyPosition } from "@/lib/rugby";
 
 interface TeamDto {
   id: string;
@@ -111,20 +112,50 @@ export default async function TeamDetailPage({
               No players yet. Add your first player above.
             </div>
           ) : (
-            <ul className="space-y-2">
-              {roster.map((p) => (
-                <PlayerRow
-                  key={p.id}
-                  teamId={team.data.id}
-                  player={{
-                    id: p.id,
-                    displayName: p.displayName,
-                    jerseyNumber: p.jerseyNumber,
-                    position: p.position,
-                  }}
-                />
-              ))}
-            </ul>
+            (() => {
+              // Split the squad by rugby unit so forwards-specific and
+              // backs-specific training sessions map cleanly to selection.
+              const forwards = roster.filter(
+                (p) => classifyPosition(p.position) === "forward",
+              );
+              const backs = roster.filter(
+                (p) => classifyPosition(p.position) === "back",
+              );
+              const unassigned = roster.filter(
+                (p) => classifyPosition(p.position) === null,
+              );
+              const sortByJersey = (a: PlayerDto, b: PlayerDto) =>
+                (a.jerseyNumber ?? 99) - (b.jerseyNumber ?? 99);
+              forwards.sort(sortByJersey);
+              backs.sort(sortByJersey);
+
+              return (
+                <div className="space-y-6">
+                  <RosterGroup
+                    title="Forwards"
+                    subtitle="The pack — typically jerseys 1–8"
+                    teamId={team.data.id}
+                    players={forwards}
+                    emptyHint="No forwards on the roster yet."
+                  />
+                  <RosterGroup
+                    title="Backs"
+                    subtitle="The backline — typically jerseys 9–15"
+                    teamId={team.data.id}
+                    players={backs}
+                    emptyHint="No backs on the roster yet."
+                  />
+                  {unassigned.length > 0 && (
+                    <RosterGroup
+                      title="Unassigned"
+                      subtitle="Players without a rugby position set"
+                      teamId={team.data.id}
+                      players={unassigned}
+                    />
+                  )}
+                </div>
+              );
+            })()
           )}
         </section>
 
@@ -191,5 +222,61 @@ export default async function TeamDetailPage({
         </section>
       </section>
     </main>
+  );
+}
+
+interface RosterGroupProps {
+  title: string;
+  subtitle?: string;
+  teamId: string;
+  players: PlayerDto[];
+  emptyHint?: string;
+}
+
+function RosterGroup({
+  title,
+  subtitle,
+  teamId,
+  players,
+  emptyHint,
+}: RosterGroupProps) {
+  const headingId = `roster-${title.toLowerCase()}`;
+  return (
+    <section aria-labelledby={headingId} className="space-y-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3
+          id={headingId}
+          className="font-heading text-lg text-forge-navy"
+        >
+          {title}
+          <span className="ml-2 text-sm text-slate font-normal">
+            ({players.length})
+          </span>
+        </h3>
+        {subtitle && (
+          <p className="text-xs text-slate/80 truncate">{subtitle}</p>
+        )}
+      </div>
+      {players.length === 0 ? (
+        <div className="rounded-card bg-white p-4 shadow-soft text-sm text-slate">
+          {emptyHint ?? "No players in this group yet."}
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {players.map((p) => (
+            <PlayerRow
+              key={p.id}
+              teamId={teamId}
+              player={{
+                id: p.id,
+                displayName: p.displayName,
+                jerseyNumber: p.jerseyNumber,
+                position: p.position,
+              }}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
