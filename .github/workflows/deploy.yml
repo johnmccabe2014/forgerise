@@ -180,13 +180,17 @@ jobs:
           HOST: ${{ needs.resolve.outputs.host }}
         run: |
           set -euo pipefail
+          # NOTE: -k tolerates traefik's self-signed default cert while the
+          # cert-manager Let's Encrypt cert is still being issued (depends on
+          # public DNS being in place). Once forgerise-tls is Ready we should
+          # drop -k and use --resolve only when needed.
           echo "::group::GET https://${HOST}/"
-          curl -fsS --max-time 10 -o /dev/null -w "web    %{http_code}\n" "https://${HOST}/"
+          curl -fksS --max-time 10 -o /dev/null -w "web    %{http_code}\n" "https://${HOST}/"
           echo "::endgroup::"
 
           echo "::group::GET https://${HOST}/api/proxy/health"
           # Validates the Next /api/proxy/[...path] handler can reach the API in-cluster.
-          curl -fsS --max-time 10 -o /dev/null -w "proxy  %{http_code}\n" "https://${HOST}/api/proxy/health"
+          curl -fksS --max-time 10 -o /dev/null -w "proxy  %{http_code}\n" "https://${HOST}/api/proxy/health"
           echo "::endgroup::"
 
       - name: On failure — print rollback commands
