@@ -220,6 +220,43 @@ public sealed class TeamsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Transfer ownership of a team from the calling Owner to another existing
+    /// coach. The caller is demoted to Coach and the target is promoted to
+    /// Owner in a single transaction so the team is never ownerless and never
+    /// has zero members. Idempotent: transferring to yourself, or to someone
+    /// who is already the sole Owner with the caller as Coach, is a no-op.
+    /// </summary>
+    [HttpPost("{id:guid}/coaches/{coachUserId:guid}/transfer-ownership")]
+    public async Task<IActionResult> TransferOwnership(Guid id, Guid coachUserId, CancellationToken ct)
+    {
+        var (_, err) = await TeamScope.RequireTeamOwner(this, _db, id, ct);
+        if (err is not null) return err;
+
+        var callerId = User.TryGetUserId()!.Value;
+
+        // Self-transfer is a no-op rather than an error so the UI can be naive.
+        if (callerId == coachUserId) return NoContent();
+
+        var target = await _db.TeamMemberships
+            .FirstOrDefaultAsync(m => m.TeamId == id && m.UserId == coachUserId, ct);
+        if (target is null) return NotFound(new { error = "target_not_a_coach" });
+
+        var caller = await _db.TeamMemberships
+            .FirstAsync(m => m.TeamId == id && m.UserId == callerId, ct);
+
+        // Both updates land in one SaveChanges call, which EF wraps in a
+        // single transaction — so we never observe a state with zero Owners.
+        target.Role = TeamRole.Owner;
+        caller.Role = TeamRole.Coach;
+        await _db.SaveChangesAsync(ct);
+
+        _log.LogInformation(
+            "teams.ownership_transferred {TeamId} {FromUserId} {ToUserId}",
+            id, callerId, coachUserId);
+        return NoContent();
+    }
+
     // ---------------- Invites ----------------
 
     [HttpGet("{id:guid}/invites")]

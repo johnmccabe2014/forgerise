@@ -54,6 +54,40 @@ export function CoachesPanel({ teamId, myRole, myUserId, coaches }: CoachesPanel
     }
   }
 
+  async function transferOwnership(userId: string, displayName: string) {
+    if (busyId) return;
+    if (
+      !window.confirm(
+        `Make ${displayName} the team owner? You will be demoted to a coach and ` +
+          `they'll be able to manage invites, remove coaches, and delete the team.`,
+      )
+    )
+      return;
+    setError(null);
+    setBusyId(userId);
+    try {
+      const res = await fetch(
+        `/api/proxy/teams/${teamId}/coaches/${userId}/transfer-ownership`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        if (res.status === 403) {
+          setError("Only the team owner can transfer ownership.");
+        } else if (res.status === 404) {
+          setError("That coach is no longer on the team.");
+        } else {
+          setError("Could not transfer ownership. Please try again.");
+        }
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div className="space-y-2">
       {coaches.length === 0 ? (
@@ -88,15 +122,28 @@ export function CoachesPanel({ teamId, myRole, myUserId, coaches }: CoachesPanel
                   </p>
                 </div>
                 {myRole === "owner" && !isSelf && (
-                  <button
-                    type="button"
-                    onClick={() => remove(c.userId)}
-                    disabled={busyId === c.userId}
-                    className="text-sm text-red-600 hover:underline disabled:opacity-60"
-                    aria-label={`Remove ${c.displayName}`}
-                  >
-                    {busyId === c.userId ? "Removing…" : "Remove"}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {c.role === "coach" && (
+                      <button
+                        type="button"
+                        onClick={() => transferOwnership(c.userId, c.displayName)}
+                        disabled={busyId === c.userId}
+                        className="text-sm text-forge-navy hover:underline disabled:opacity-60"
+                        aria-label={`Make ${c.displayName} the team owner`}
+                      >
+                        {busyId === c.userId ? "Transferring…" : "Make owner"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => remove(c.userId)}
+                      disabled={busyId === c.userId}
+                      className="text-sm text-red-600 hover:underline disabled:opacity-60"
+                      aria-label={`Remove ${c.displayName}`}
+                    >
+                      {busyId === c.userId ? "Removing…" : "Remove"}
+                    </button>
+                  </div>
                 )}
               </li>
             );

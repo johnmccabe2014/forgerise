@@ -86,4 +86,61 @@ describe("CoachesPanel", () => {
       expect(screen.getByRole("alert")).toHaveTextContent(/last owner/i),
     );
   });
+
+  it("owner can transfer ownership to another coach", async () => {
+    const fetchMock = vi.mocked(global.fetch);
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    render(
+      <CoachesPanel
+        teamId="t1"
+        myRole="owner"
+        myUserId="u-owner"
+        coaches={sample}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /make other coach the team owner/i }),
+    );
+    await waitFor(() => expect(refreshMock).toHaveBeenCalled());
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(
+      "/api/proxy/teams/t1/coaches/u-coach/transfer-ownership",
+    );
+    expect((init as RequestInit).method).toBe("POST");
+  });
+
+  it("does not show 'Make owner' for an existing owner row", () => {
+    // Two owners — remove still shows, but no transfer prompt because the
+    // target is already the owner.
+    const data: CoachRow[] = [sample[0], { ...sample[1], role: "owner" }];
+    render(
+      <CoachesPanel
+        teamId="t1"
+        myRole="owner"
+        myUserId="u-owner"
+        coaches={data}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: /make other coach the team owner/i }),
+    ).toBeNull();
+  });
+
+  it("transfer is gated by confirm dialog", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => false));
+    const fetchMock = vi.mocked(global.fetch);
+    render(
+      <CoachesPanel
+        teamId="t1"
+        myRole="owner"
+        myUserId="u-owner"
+        coaches={sample}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /make other coach the team owner/i }),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

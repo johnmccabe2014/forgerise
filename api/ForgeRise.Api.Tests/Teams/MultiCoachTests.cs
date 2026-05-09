@@ -176,6 +176,89 @@ public class MultiCoachTests : IClassFixture<ForgeRiseFactory>
         Assert.Equal(HttpStatusCode.Conflict, removeSelf.StatusCode);
     }
 
+    [Fact]
+    public async Task Owner_can_transfer_ownership_to_existing_coach()
+    {
+        var owner = await AuthenticatedClient("o7");
+        var coach = await AuthenticatedClient("c7");
+        var team = await CreateTeam(owner, "Eagles", "eagles-mc");
+        var invite = await CreateInvite(owner, team.Id);
+        (await coach.PostAsJsonAsync("/teams/join", new { code = invite.Code })).EnsureSuccessStatusCode();
+
+        var coaches = await owner.GetFromJsonAsync<List<TeamCoachDto>>($"/teams/{team.Id}/coaches");
+        var coachRow = coaches!.Single(c => c.Role == "coach");
+
+        var transfer = await owner.PostAsync(
+            $"/teams/{team.Id}/coaches/{coachRow.UserId}/transfer-ownership", content: null);
+        Assert.Equal(HttpStatusCode.NoContent, transfer.StatusCode);
+
+        // Roles flipped.
+        var afterOwner = await owner.GetFromJsonAsync<TeamDto>($"/teams/{team.Id}");
+        Assert.Equal("coach", afterOwner!.MyRole);
+        var afterCoach = await coach.GetFromJsonAsync<TeamDto>($"/teams/{team.Id}");
+        Assert.Equal("owner", afterCoach!.MyRole);
+
+        // Original owner can no longer create invites; new owner can.
+        var oldOwnerInvite = await owner.PostAsync($"/teams/{team.Id}/invites", null);
+        Assert.Equal(HttpStatusCode.Forbidden, oldOwnerInvite.StatusCode);
+        var newOwnerInvite = await coach.PostAsync($"/teams/{team.Id}/invites", null);
+        Assert.Equal(HttpStatusCode.Created, newOwnerInvite.StatusCode);
+
+        // Team still has exactly one Owner.
+        var rosterAfter = await coach.GetFromJsonAsync<List<TeamCoachDto>>($"/teams/{team.Id}/coaches");
+        Assert.Single(rosterAfter!, c => c.Role == "owner");
+    }
+
+    [Fact]
+    public async Task Non_owner_cannot_transfer_ownership()
+    {
+        var owner = await AuthenticatedClient("o8");
+        var coach = await AuthenticatedClient("c8");
+        var team = await CreateTeam(owner, "Falcons", "falcons-mc");
+        var invite = await CreateInvite(owner, team.Id);
+        (await coach.PostAsJsonAsync("/teams/join", new { code = invite.Code })).EnsureSuccessStatusCode();
+
+        var roster = await owner.GetFromJsonAsync<List<TeamCoachDto>>($"/teams/{team.Id}/coaches");
+        var ownerRow = roster!.Single(c => c.Role == "owner");
+
+        // Coach trying to grab ownership for themselves → 403.
+        var grab = await coach.PostAsync(
+            $"/teams/{team.Id}/coaches/{ownerRow.UserId}/transfer-ownership", null);
+        Assert.Equal(HttpStatusCode.Forbidden, grab.StatusCode);
+    }
+
+    [Fact]
+    public async Task Transfer_to_non_member_returns_404()
+    {
+        var owner = await AuthenticatedClient("o9");
+        var stranger = await AuthenticatedClient("st9");
+        var team = await CreateTeam(owner, "Hawks", "hawks-mc");
+
+        // Get stranger's user id by having them register and read /me.
+        var me = await stranger.GetFromJsonAsync<JsonElement>("/auth/me");
+        var strangerId = me.GetProperty("id").GetGuid();
+
+        var transfer = await owner.PostAsync(
+            $"/teams/{team.Id}/coaches/{strangerId}/transfer-ownership", null);
+        Assert.Equal(HttpStatusCode.NotFound, transfer.StatusCode);
+    }
+
+    [Fact]
+    public async Task Transfer_to_self_is_noop()
+    {
+        var owner = await AuthenticatedClient("o10");
+        var team = await CreateTeam(owner, "Ospreys", "ospreys-mc");
+        var roster = await owner.GetFromJsonAsync<List<TeamCoachDto>>($"/teams/{team.Id}/coaches");
+        var me = roster!.Single().UserId;
+
+        var transfer = await owner.PostAsync(
+            $"/teams/{team.Id}/coaches/{me}/transfer-ownership", null);
+        Assert.Equal(HttpStatusCode.NoContent, transfer.StatusCode);
+
+        var after = await owner.GetFromJsonAsync<TeamDto>($"/teams/{team.Id}");
+        Assert.Equal("owner", after!.MyRole);
+    }
+
     private sealed class CookieJarHandler : DelegatingHandler
     {
         private readonly System.Net.CookieContainer _jar = new();
