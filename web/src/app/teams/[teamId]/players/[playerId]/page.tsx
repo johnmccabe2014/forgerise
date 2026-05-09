@@ -50,6 +50,7 @@ interface IncidentSummaryDto {
   occurredAt: string;
   severity: number; // 0 Low, 1 Medium, 2 High
   summary: string;
+  submittedBySelf: boolean;
 }
 
 const SAFE_CATEGORY_TO_READINESS: Record<number, ReadinessCategory> = {
@@ -312,9 +313,12 @@ export default async function PlayerProfilePage({
                   className="flex items-center justify-between gap-4 py-2"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm text-deep-charcoal truncate">
-                      {i.summary}
-                    </p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-sm text-deep-charcoal truncate">
+                        {i.summary}
+                      </p>
+                      {i.submittedBySelf && <SelfSubmittedPill />}
+                    </div>
                     <p className="text-xs text-slate">{fmtDate(i.occurredAt)}</p>
                   </div>
                   <span
@@ -341,6 +345,7 @@ export default async function PlayerProfilePage({
           <PlayerInvitePanel
             teamId={teamId}
             playerId={playerId}
+            playerBirthYear={player.birthYear}
             invites={invites}
           />
         </section>

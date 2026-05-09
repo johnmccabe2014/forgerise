@@ -13,7 +13,18 @@ public sealed record PlayerInviteDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset ExpiresAt,
     DateTimeOffset? ConsumedAt,
-    DateTimeOffset? RevokedAt);
+    DateTimeOffset? RevokedAt,
+    bool RequiresGuardianConsent,
+    bool GuardianConsentAcknowledged);
+
+public sealed class CreatePlayerInviteRequest
+{
+    /// <summary>
+    /// Coach attestation that they have guardian consent for an under-16
+    /// player. Required when the target player is under 16; ignored otherwise.
+    /// </summary>
+    public bool GuardianConsentAcknowledged { get; init; }
+}
 
 public sealed class RedeemPlayerInviteRequest
 {
@@ -55,3 +66,29 @@ public sealed record MyCheckInDto(
     SafeCategory Category,
     string CategoryLabel,
     bool SubmittedBySelf);
+
+/// <summary>
+/// Self-service view of one of the player's own incidents. Player owns the
+/// data, so raw notes are returned. Severity is capped at Medium for
+/// player-filed reports — anything more serious requires coach review.
+/// </summary>
+public sealed record MyIncidentDto(
+    Guid Id,
+    Guid PlayerId,
+    DateTimeOffset OccurredAt,
+    IncidentSeverity Severity,
+    string Summary,
+    string? Notes,
+    bool SubmittedBySelf);
+
+public sealed class CreateSelfIncidentRequest
+{
+    /// <summary>Low or Medium only — High is rejected for self-reports.</summary>
+    [Required] public IncidentSeverity Severity { get; init; }
+
+    [Required, StringLength(280, MinimumLength = 1)]
+    public string Summary { get; init; } = string.Empty;
+
+    [StringLength(4_000)] public string? Notes { get; init; }
+    public DateTimeOffset? OccurredAt { get; init; }
+}

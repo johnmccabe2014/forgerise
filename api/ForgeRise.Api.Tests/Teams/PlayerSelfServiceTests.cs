@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using ForgeRise.Api.Data.Entities;
 using ForgeRise.Api.Tests.TestInfra;
 using ForgeRise.Api.Teams.Contracts;
 using ForgeRise.Api.Welfare;
@@ -180,6 +181,109 @@ public class PlayerSelfServiceTests : IClassFixture<ForgeRiseFactory>
 
         var resp = await stranger.PostAsync(
             $"/teams/{team.Id}/players/{roster.Id}/invites", null);
+        Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Invite_for_under_16_requires_guardian_acknowledgement()
+    {
+        var coach = await AuthenticatedClient("coach-mc");
+        var team = await CreateTeam(coach, "Cubs SS", "cubs-ss");
+        var minorYear = DateTimeOffset.UtcNow.Year - 12;
+        var minorResp = await coach.PostAsJsonAsync($"/teams/{team.Id}/players",
+            new { displayName = "Mini Mouse", jerseyNumber = 7, position = "SH", birthYear = minorYear });
+        Assert.Equal(HttpStatusCode.Created, minorResp.StatusCode);
+        var minor = (await minorResp.Content.ReadFromJsonAsync<PlayerDto>())!;
+
+        // No body → BadRequest with guardian_consent_required.
+        var noAck = await coach.PostAsync(
+            $"/teams/{team.Id}/players/{minor.Id}/invites", null);
+        Assert.Equal(HttpStatusCode.BadRequest, noAck.StatusCode);
+        Assert.Contains("guardian_consent_required", await noAck.Content.ReadAsStringAsync());
+
+        // Explicit false → still rejected.
+        var explicitNo = await coach.PostAsJsonAsync(
+            $"/teams/{team.Id}/players/{minor.Id}/invites",
+            new { guardianConsentAcknowledged = false });
+        Assert.Equal(HttpStatusCode.BadRequest, explicitNo.StatusCode);
+
+        // With acknowledgement → invite issued and DTO advertises consent.
+        var ok = await coach.PostAsJsonAsync(
+            $"/teams/{team.Id}/players/{minor.Id}/invites",
+            new { guardianConsentAcknowledged = true });
+        Assert.Equal(HttpStatusCode.Created, ok.StatusCode);
+        var dto = (await ok.Content.ReadFromJsonAsync<PlayerInviteDto>())!;
+        Assert.True(dto.RequiresGuardianConsent);
+        Assert.True(dto.GuardianConsentAcknowledged);
+    }
+
+    [Fact]
+    public async Task Adult_invite_does_not_require_guardian_acknowledgement()
+    {
+        var coach = await AuthenticatedClient("coach-ad");
+        var team = await CreateTeam(coach, "Lions Adult", "lions-adult");
+        var adultYear = DateTimeOffset.UtcNow.Year - 25;
+        var aResp = await coach.PostAsJsonAsync($"/teams/{team.Id}/players",
+            new { displayName = "Adult Aaron", jerseyNumber = 9, position = "SH", birthYear = adultYear });
+        var adult = (await aResp.Content.ReadFromJsonAsync<PlayerDto>())!;
+
+        var ok = await coach.PostAsync($"/teams/{team.Id}/players/{adult.Id}/invites", null);
+        Assert.Equal(HttpStatusCode.Created, ok.StatusCode);
+        var dto = (await ok.Content.ReadFromJsonAsync<PlayerInviteDto>())!;
+        Assert.False(dto.RequiresGuardianConsent);
+        Assert.False(dto.GuardianConsentAcknowledged);
+    }
+
+    [Fact]
+    public async Task Player_can_self_report_incident_and_high_severity_is_rejected()
+    {
+        var coach = await AuthenticatedClient("coach-si");
+        var player = await AuthenticatedClient("player-si");
+        var team = await CreateTeam(coach, "Hawks SI", "hawks-si");
+        var roster = await AddPlayer(coach, team.Id, "Sam Sore");
+        var invite = await CreatePlayerInvite(coach, team.Id, roster.Id);
+        (await player.PostAsJsonAsync("/player-invites/redeem",
+            new { code = invite.Code })).EnsureSuccessStatusCode();
+
+        // High severity is blocked — must go through coach.
+        var high = await player.PostAsJsonAsync(
+            $"/me/players/{roster.Id}/incidents",
+            new { severity = 2, summary = "Suspected concussion" });
+        Assert.Equal(HttpStatusCode.BadRequest, high.StatusCode);
+        Assert.Contains("self_high_severity_not_allowed", await high.Content.ReadAsStringAsync());
+
+        // Low severity self-report succeeds.
+        var ok = await player.PostAsJsonAsync(
+            $"/me/players/{roster.Id}/incidents",
+            new { severity = 0, summary = "Tight hamstring after sprints", notes = "Felt it on the last rep" });
+        Assert.Equal(HttpStatusCode.Created, ok.StatusCode);
+        var saved = (await ok.Content.ReadFromJsonAsync<MyIncidentDto>())!;
+        Assert.True(saved.SubmittedBySelf);
+        Assert.Equal(IncidentSeverity.Low, saved.Severity);
+
+        var mine = await player.GetFromJsonAsync<List<MyIncidentDto>>(
+            $"/me/players/{roster.Id}/incidents");
+        Assert.Single(mine!);
+        Assert.True(mine![0].SubmittedBySelf);
+
+        // Coach sees it on the team-scoped list with the SubmittedBySelf flag.
+        var coachList = await coach.GetFromJsonAsync<List<IncidentSummaryDto>>(
+            $"/teams/{team.Id}/players/{roster.Id}/incidents");
+        Assert.Single(coachList!);
+        Assert.True(coachList![0].SubmittedBySelf);
+    }
+
+    [Fact]
+    public async Task Stranger_cannot_self_report_incident()
+    {
+        var coach = await AuthenticatedClient("coach-sx");
+        var stranger = await AuthenticatedClient("stranger-sx");
+        var team = await CreateTeam(coach, "Foxes SX", "foxes-sx");
+        var roster = await AddPlayer(coach, team.Id, "Walled");
+
+        var resp = await stranger.PostAsJsonAsync(
+            $"/me/players/{roster.Id}/incidents",
+            new { severity = 0, summary = "Should be forbidden" });
         Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
     }
 }

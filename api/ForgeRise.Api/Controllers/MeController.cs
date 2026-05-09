@@ -148,4 +148,80 @@ public sealed class MeController : ControllerBase
         c.Id, c.PlayerId, c.AsOf,
         c.SleepHours, c.SorenessScore, c.MoodScore, c.StressScore, c.FatigueScore, c.InjuryNotes,
         c.Category, SafeCategoryLabels.Label(c.Category), c.SubmittedBySelf);
+
+    [HttpGet("players/{playerId:guid}/incidents")]
+    public async Task<IActionResult> ListMyIncidents(Guid playerId, CancellationToken ct)
+    {
+        var (_, _, err) = await RequireLinkedPlayer(playerId, ct);
+        if (err is not null) return err;
+
+        var incidents = await _db.IncidentReports
+            .Where(i => i.PlayerId == playerId && i.DeletedAt == null)
+            .OrderByDescending(i => i.OccurredAt)
+            .ToListAsync(ct);
+
+        return Ok(incidents.Select(ToIncidentDto));
+    }
+
+    [HttpPost("players/{playerId:guid}/incidents")]
+    public async Task<IActionResult> CreateMyIncident(
+        Guid playerId, [FromBody] CreateSelfIncidentRequest request, CancellationToken ct)
+    {
+        if (!ModelState.IsValid) return ValidationProblem(ModelState);
+
+        // Self-reports are capped at Medium. High severity must come from a
+        // coach so it goes through proper triage. Reject with a clear error
+        // so the UI can surface "please contact your coach directly".
+        if (request.Severity == IncidentSeverity.High)
+        {
+            ModelState.AddModelError(nameof(request.Severity), "self_high_severity_not_allowed");
+            return ValidationProblem(ModelState);
+        }
+
+        var (userIdNullable, _, err) = await RequireLinkedPlayer(playerId, ct);
+        if (err is not null) return err;
+        var userId = userIdNullable!.Value;
+
+        var incident = new IncidentReport
+        {
+            PlayerId = playerId,
+            RecordedByUserId = userId,
+            SubmittedBySelf = true,
+            OccurredAt = request.OccurredAt ?? _time.GetUtcNow(),
+            Severity = request.Severity,
+            Summary = request.Summary.Trim(),
+            Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes,
+        };
+        _db.IncidentReports.Add(incident);
+        _db.WelfareAuditLogs.Add(new WelfareAuditLog
+        {
+            ActorUserId = userId,
+            PlayerId = playerId,
+            SubjectId = incident.Id,
+            Action = WelfareAuditAction.SelfReportIncident,
+            At = _time.GetUtcNow(),
+        });
+        await _db.SaveChangesAsync(ct);
+
+        _log.LogInformation("welfare.incident.self_reported {IncidentId} {PlayerId} {Severity}",
+            incident.Id, playerId, incident.Severity);
+
+        return CreatedAtAction(nameof(GetMyIncident),
+            new { playerId, id = incident.Id }, ToIncidentDto(incident));
+    }
+
+    [HttpGet("players/{playerId:guid}/incidents/{id:guid}")]
+    public async Task<IActionResult> GetMyIncident(Guid playerId, Guid id, CancellationToken ct)
+    {
+        var (_, _, err) = await RequireLinkedPlayer(playerId, ct);
+        if (err is not null) return err;
+
+        var incident = await _db.IncidentReports
+            .FirstOrDefaultAsync(i => i.Id == id && i.PlayerId == playerId && i.DeletedAt == null, ct);
+        if (incident is null) return NotFound();
+        return Ok(ToIncidentDto(incident));
+    }
+
+    private static MyIncidentDto ToIncidentDto(IncidentReport i) =>
+        new(i.Id, i.PlayerId, i.OccurredAt, i.Severity, i.Summary, i.Notes, i.SubmittedBySelf);
 }

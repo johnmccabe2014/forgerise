@@ -30,6 +30,13 @@ public class IncidentReport
     /// <summary>Raw notes. Returned only by audited owner-only endpoint.</summary>
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// True when the player themselves filed the incident via the
+    /// self-service /me endpoint, false when a coach recorded it. Provenance
+    /// metadata for audit — does not change visibility rules.
+    /// </summary>
+    public bool SubmittedBySelf { get; set; }
+
     public DateTimeOffset? DeletedAt { get; set; }
     public DateTimeOffset? RawPurgedAt { get; set; }
 }

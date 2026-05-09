@@ -10,11 +10,15 @@ export interface PlayerInviteRow {
   expiresAt: string;
   consumedAt: string | null;
   revokedAt: string | null;
+  requiresGuardianConsent: boolean;
+  guardianConsentAcknowledged: boolean;
 }
 
 export interface PlayerInvitePanelProps {
   teamId: string;
   playerId: string;
+  /** Used to detect under-16 players who require guardian consent. */
+  playerBirthYear: number | null;
   invites: PlayerInviteRow[];
 }
 
@@ -42,24 +46,41 @@ function fmt(iso: string): string {
 export function PlayerInvitePanel({
   teamId,
   playerId,
+  playerBirthYear,
   invites,
 }: PlayerInvitePanelProps) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [guardianAck, setGuardianAck] = useState(false);
+
+  const isMinor =
+    playerBirthYear !== null &&
+    new Date().getFullYear() - playerBirthYear < 16;
 
   async function create() {
+    if (isMinor && !guardianAck) {
+      setError(
+        "Confirm guardian consent before issuing an invite for an under-16 player.",
+      );
+      return;
+    }
     setBusy("create");
     setError(null);
     try {
       const res = await fetch(
         `/api/proxy/teams/${teamId}/players/${playerId}/invites`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ guardianConsentAcknowledged: isMinor && guardianAck }),
+        },
       );
       if (!res.ok) {
         setError("Could not create invite. Please try again.");
         return;
       }
+      setGuardianAck(false);
       router.refresh();
     } catch {
       setError("Network error. Please try again.");
@@ -97,12 +118,28 @@ export function PlayerInvitePanel({
         <button
           type="button"
           onClick={create}
-          disabled={busy === "create"}
+          disabled={busy === "create" || (isMinor && !guardianAck)}
           className="rounded-xl bg-forge-navy px-3 py-1.5 text-sm text-white font-heading disabled:opacity-60"
         >
           {busy === "create" ? "Creating…" : "+ New invite"}
         </button>
       </div>
+
+      {isMinor && (
+        <label className="flex items-start gap-2 rounded-card border border-rise-copper/30 bg-rise-copper/5 p-3 text-xs text-deep-charcoal">
+          <input
+            type="checkbox"
+            checked={guardianAck}
+            onChange={(e) => setGuardianAck(e.target.checked)}
+            className="mt-0.5"
+            aria-label="I confirm I have guardian consent for this under-16 player"
+          />
+          <span>
+            This player is under 16. I confirm I have explicit guardian
+            consent before issuing a self-service invite.
+          </span>
+        </label>
+      )}
 
       {error && (
         <p role="alert" className="text-sm text-readiness-recovery">

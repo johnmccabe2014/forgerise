@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { ClaimPlayerForm } from "@/components/ClaimPlayerForm";
 import { SelfCheckInForm } from "@/components/SelfCheckInForm";
+import { SelfIncidentForm } from "@/components/SelfIncidentForm";
+import { ReadinessBadge } from "@/components/ReadinessBadge";
+import { type ReadinessCategory } from "@/types/welfare";
 
 export const metadata = { title: "My profile — ForgeRise" };
 export const dynamic = "force-dynamic";
@@ -21,6 +24,28 @@ interface MyLinkedPlayerDto {
   claimedAt: string;
 }
 
+interface MyCheckInDto {
+  id: string;
+  asOf: string;
+  category: number;
+  categoryLabel: string;
+  submittedBySelf: boolean;
+}
+
+const CATEGORY_TO_KEY: Record<number, ReadinessCategory> = {
+  0: "ready",
+  1: "monitor",
+  2: "modify",
+  3: "recovery",
+};
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
 export default async function MePage() {
   const me = await serverFetchApi<MeDto>("/auth/me");
   if (!me.ok) {
@@ -28,6 +53,18 @@ export default async function MePage() {
   }
   const linked = await serverFetchApi<MyLinkedPlayerDto[]>("/me/players");
   const players = linked.ok && Array.isArray(linked.data) ? linked.data : [];
+
+  // Fan out to fetch recent check-ins per linked player. Linked-player count
+  // is small (typically 1, occasionally a few siblings), so a parallel fetch
+  // is cheaper than introducing a new batch endpoint.
+  const histories = await Promise.all(
+    players.map(async (p) => {
+      const r = await serverFetchApi<MyCheckInDto[]>(
+        `/me/players/${p.playerId}/checkins`,
+      );
+      return r.ok && Array.isArray(r.data) ? r.data.slice(0, 7) : [];
+    }),
+  );
 
   return (
     <main className="min-h-screen bg-mist-grey">
@@ -85,7 +122,9 @@ export default async function MePage() {
             </div>
           ) : (
             <ul className="space-y-6">
-              {players.map((p) => (
+              {players.map((p, idx) => {
+                const history = histories[idx] ?? [];
+                return (
                 <li
                   key={p.playerId}
                   className="rounded-card bg-white p-6 shadow-soft space-y-4"
@@ -102,8 +141,41 @@ export default async function MePage() {
                     </h3>
                     <SelfCheckInForm playerId={p.playerId} />
                   </div>
+                  <div className="border-t border-slate/10 pt-4">
+                    <h3 className="font-heading text-deep-charcoal mb-3">
+                      Recent check-ins
+                    </h3>
+                    {history.length === 0 ? (
+                      <p className="text-sm text-slate">
+                        No check-ins yet. Submit one above to see it here.
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-slate/10">
+                        {history.map((h) => (
+                          <li
+                            key={h.id}
+                            className="flex items-center justify-between gap-3 py-2"
+                          >
+                            <span className="text-sm text-deep-charcoal">
+                              {fmtDate(h.asOf)}
+                            </span>
+                            <ReadinessBadge
+                              category={CATEGORY_TO_KEY[h.category] ?? "monitor"}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="border-t border-slate/10 pt-4">
+                    <h3 className="font-heading text-deep-charcoal mb-3">
+                      Report an injury or welfare issue
+                    </h3>
+                    <SelfIncidentForm playerId={p.playerId} />
+                  </div>
                 </li>
-              ))}
+              );
+              })}
             </ul>
           )}
         </section>

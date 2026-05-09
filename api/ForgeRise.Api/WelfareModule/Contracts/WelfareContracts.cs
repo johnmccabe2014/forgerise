@@ -45,7 +45,7 @@ public sealed class CreateIncidentRequest
     public DateTimeOffset? OccurredAt { get; init; }
 }
 
-public sealed record IncidentSummaryDto(Guid Id, Guid PlayerId, DateTimeOffset OccurredAt, IncidentSeverity Severity, string Summary);
+public sealed record IncidentSummaryDto(Guid Id, Guid PlayerId, DateTimeOffset OccurredAt, IncidentSeverity Severity, string Summary, bool SubmittedBySelf);
 
 public sealed record IncidentRawDto(
     Guid Id,

@@ -23,4 +23,13 @@ public sealed class PlayerInvite
     public DateTimeOffset? ConsumedAt { get; set; }
     public Guid? ConsumedByUserId { get; set; }
     public DateTimeOffset? RevokedAt { get; set; }
+
+    /// <summary>
+    /// Set when the issuing coach attests they have guardian consent for an
+    /// under-16 player. Required to issue an invite for any player whose
+    /// <see cref="Player.BirthYear"/> implies they are under 16. Adults
+    /// leave this null.
+    /// </summary>
+    public Guid? GuardianAcknowledgedByUserId { get; set; }
+    public DateTimeOffset? GuardianAcknowledgedAt { get; set; }
 }

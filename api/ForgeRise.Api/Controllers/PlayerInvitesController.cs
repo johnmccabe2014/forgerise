@@ -23,48 +23,77 @@ public sealed class PlayerInvitesController : ControllerBase
 
     private readonly AppDbContext _db;
     private readonly ILogger<PlayerInvitesController> _log;
+    private readonly TimeProvider _time;
 
-    public PlayerInvitesController(AppDbContext db, ILogger<PlayerInvitesController> log)
+    public PlayerInvitesController(AppDbContext db, ILogger<PlayerInvitesController> log, TimeProvider time)
     {
         _db = db;
         _log = log;
+        _time = time;
     }
 
-    private static PlayerInviteDto ToDto(PlayerInvite i) =>
-        new(i.Id, i.PlayerId, i.Code, i.CreatedAt, i.ExpiresAt, i.ConsumedAt, i.RevokedAt);
+    /// <summary>
+    /// True when the player's birth year implies they will turn under 16 or
+    /// younger this calendar year. Conservative — we don't have day/month
+    /// granularity yet, so we treat the whole birth-year cohort as minors.
+    /// </summary>
+    private bool IsMinor(Player player)
+    {
+        if (player.BirthYear is null) return false;
+        var thisYear = _time.GetUtcNow().Year;
+        return thisYear - player.BirthYear.Value < 16;
+    }
+
+    private PlayerInviteDto ToDto(PlayerInvite i, Player player) =>
+        new(i.Id, i.PlayerId, i.Code, i.CreatedAt, i.ExpiresAt, i.ConsumedAt, i.RevokedAt,
+            IsMinor(player), i.GuardianAcknowledgedAt is not null);
 
     [HttpGet("teams/{teamId:guid}/players/{playerId:guid}/invites")]
     public async Task<IActionResult> List(Guid teamId, Guid playerId, CancellationToken ct)
     {
-        var (_, _, err) = await TeamScope.RequireOwnedPlayer(this, _db, teamId, playerId, ct);
+        var (_, player, err) = await TeamScope.RequireOwnedPlayer(this, _db, teamId, playerId, ct);
         if (err is not null) return err;
 
         var invites = await _db.PlayerInvites
             .Where(i => i.PlayerId == playerId)
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync(ct);
-        return Ok(invites.Select(ToDto));
+        return Ok(invites.Select(i => ToDto(i, player!)));
     }
 
     [HttpPost("teams/{teamId:guid}/players/{playerId:guid}/invites")]
-    public async Task<IActionResult> Create(Guid teamId, Guid playerId, CancellationToken ct)
+    public async Task<IActionResult> Create(
+        Guid teamId, Guid playerId,
+        [FromBody] CreatePlayerInviteRequest? request,
+        CancellationToken ct)
     {
-        var (_, _, err) = await TeamScope.RequireOwnedPlayer(this, _db, teamId, playerId, ct);
+        var (_, player, err) = await TeamScope.RequireOwnedPlayer(this, _db, teamId, playerId, ct);
         if (err is not null) return err;
 
         var userId = User.TryGetUserId()!.Value;
+        var minor = IsMinor(player!);
+        var ack = request?.GuardianConsentAcknowledged ?? false;
+        if (minor && !ack)
+        {
+            return BadRequest(new { error = "guardian_consent_required" });
+        }
+
         var invite = new PlayerInvite
         {
             PlayerId = playerId,
             Code = GenerateInviteCode(),
             CreatedByUserId = userId,
-            ExpiresAt = DateTimeOffset.UtcNow.Add(InviteLifetime),
+            ExpiresAt = _time.GetUtcNow().Add(InviteLifetime),
+            GuardianAcknowledgedByUserId = minor ? userId : null,
+            GuardianAcknowledgedAt = minor ? _time.GetUtcNow() : null,
         };
         _db.PlayerInvites.Add(invite);
         await _db.SaveChangesAsync(ct);
 
-        _log.LogInformation("player_invite.created {PlayerId} {InviteId}", playerId, invite.Id);
-        return Created(string.Empty, ToDto(invite));
+        _log.LogInformation(
+            "player_invite.created {PlayerId} {InviteId} minor={Minor} guardianAck={Ack}",
+            playerId, invite.Id, minor, ack);
+        return Created(string.Empty, ToDto(invite, player!));
     }
 
     [HttpDelete("teams/{teamId:guid}/players/{playerId:guid}/invites/{inviteId:guid}")]
@@ -78,7 +107,7 @@ public sealed class PlayerInvitesController : ControllerBase
         if (invite is null) return NotFound();
         if (invite.RevokedAt is not null || invite.ConsumedAt is not null) return NoContent();
 
-        invite.RevokedAt = DateTimeOffset.UtcNow;
+        invite.RevokedAt = _time.GetUtcNow();
         await _db.SaveChangesAsync(ct);
         _log.LogInformation("player_invite.revoked {PlayerId} {InviteId}", playerId, inviteId);
         return NoContent();
@@ -120,14 +149,14 @@ public sealed class PlayerInvitesController : ControllerBase
 
         if (invite.RevokedAt is not null) return Conflict(new { error = "invite_revoked" });
         if (invite.ConsumedAt is not null) return Conflict(new { error = "invite_consumed" });
-        if (invite.ExpiresAt <= DateTimeOffset.UtcNow) return Conflict(new { error = "invite_expired" });
+        if (invite.ExpiresAt <= _time.GetUtcNow()) return Conflict(new { error = "invite_expired" });
 
         _db.PlayerLinks.Add(new PlayerLink
         {
             PlayerId = invite.PlayerId,
             UserId = userId.Value,
         });
-        invite.ConsumedAt = DateTimeOffset.UtcNow;
+        invite.ConsumedAt = _time.GetUtcNow();
         invite.ConsumedByUserId = userId.Value;
         await _db.SaveChangesAsync(ct);
         _log.LogInformation("player_invite.redeemed {PlayerId} {UserId} {InviteId}",

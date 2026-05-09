@@ -26,7 +26,7 @@ public sealed class IncidentsController : ControllerBase
     }
 
     private static IncidentSummaryDto ToSummary(IncidentReport i) =>
-        new(i.Id, i.PlayerId, i.OccurredAt, i.Severity, i.Summary);
+        new(i.Id, i.PlayerId, i.OccurredAt, i.Severity, i.Summary, i.SubmittedBySelf);
 
     [HttpGet("incidents")]
     public async Task<IActionResult> List(Guid teamId, CancellationToken ct)
