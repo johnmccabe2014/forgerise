@@ -16,12 +16,14 @@ export async function serverFetchApi<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<ApiResult<T>> {
-  const cookieHeader = cookies()
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore
     .getAll()
     .map((c) => `${c.name}=${encodeURIComponent(c.value)}`)
     .join("; ");
 
-  const correlation = headers().get("x-correlation-id") ?? undefined;
+  const headerStore = await headers();
+  const correlation = headerStore.get("x-correlation-id") ?? undefined;
 
   const h = new Headers(init.headers);
   h.set("accept", "application/json");

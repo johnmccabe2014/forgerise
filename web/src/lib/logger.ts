@@ -33,7 +33,6 @@ export function log(level: LogLevel, message: string, ctx: LogContext = {}) {
     msg: message,
     ...redactWelfare(ctx),
   };
-  // eslint-disable-next-line no-console
   console.log(JSON.stringify(entry));
 }
 

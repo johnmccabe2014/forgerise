@@ -26,22 +26,23 @@ export const metadata = { title: "Attendance — ForgeRise" };
 export default async function AttendancePage({
   params,
 }: {
-  params: { teamId: string; sessionId: string };
+  params: Promise<{ teamId: string; sessionId: string }>;
 }) {
+  const { teamId, sessionId } = await params;
   const session = await serverFetchApi<SessionDto>(
-    `/teams/${params.teamId}/sessions/${params.sessionId}`,
+    `/teams/${teamId}/sessions/${sessionId}`,
   );
   if (!session.ok) {
     if (session.status === 401) redirect("/login");
-    redirect(`/teams/${params.teamId}`);
+    redirect(`/teams/${teamId}`);
   }
 
   const rows = await serverFetchApi<AttendanceRow[]>(
-    `/teams/${params.teamId}/sessions/${params.sessionId}/attendance`,
+    `/teams/${teamId}/sessions/${sessionId}/attendance`,
   );
   if (!rows.ok) {
     if (rows.status === 401) redirect("/login");
-    redirect(`/teams/${params.teamId}`);
+    redirect(`/teams/${teamId}`);
   }
 
   const initialRows = Array.isArray(rows.data) ? rows.data : [];
@@ -52,7 +53,7 @@ export default async function AttendancePage({
       <header className="bg-white border-b border-slate/10">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center justify-between">
           <Link
-            href={`/teams/${params.teamId}`}
+            href={`/teams/${teamId}`}
             className="text-sm text-slate underline"
           >
             ← Team
@@ -88,8 +89,8 @@ export default async function AttendancePage({
         </div>
 
         <AttendanceForm
-          teamId={params.teamId}
-          sessionId={params.sessionId}
+          teamId={teamId}
+          sessionId={sessionId}
           initialRows={initialRows}
         />
       </section>

@@ -52,9 +52,10 @@ export const metadata = { title: "Team — ForgeRise" };
 export default async function TeamDetailPage({
   params,
 }: {
-  params: { teamId: string };
+  params: Promise<{ teamId: string }>;
 }) {
-  const team = await serverFetchApi<TeamDto>(`/teams/${params.teamId}`);
+  const { teamId } = await params;
+  const team = await serverFetchApi<TeamDto>(`/teams/${teamId}`);
   if (!team.ok) {
     if (team.status === 401) redirect("/login");
     redirect("/dashboard");
@@ -65,12 +66,12 @@ export default async function TeamDetailPage({
   const myRole: "owner" | "coach" = team.data.myRole ?? "owner";
 
   const players = await serverFetchApi<PlayerDto[]>(
-    `/teams/${params.teamId}/players`,
+    `/teams/${teamId}/players`,
   );
   const roster = players.ok && Array.isArray(players.data) ? players.data : [];
 
   const sessionsResp = await serverFetchApi<SessionDto[]>(
-    `/teams/${params.teamId}/sessions`,
+    `/teams/${teamId}/sessions`,
   );
   const sessions =
     sessionsResp.ok && Array.isArray(sessionsResp.data)
@@ -78,7 +79,7 @@ export default async function TeamDetailPage({
       : [];
 
   const coachesResp = await serverFetchApi<CoachRow[]>(
-    `/teams/${params.teamId}/coaches`,
+    `/teams/${teamId}/coaches`,
   );
   const coaches =
     coachesResp.ok && Array.isArray(coachesResp.data) ? coachesResp.data : [];
@@ -86,7 +87,7 @@ export default async function TeamDetailPage({
   // Invites are owner-only — skip the round-trip for coaches (the API would 403).
   const invitesResp =
     myRole === "owner"
-      ? await serverFetchApi<InviteRow[]>(`/teams/${params.teamId}/invites`)
+      ? await serverFetchApi<InviteRow[]>(`/teams/${teamId}/invites`)
       : null;
   const invites =
     invitesResp && invitesResp.ok && Array.isArray(invitesResp.data)

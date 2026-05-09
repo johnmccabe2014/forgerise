@@ -3,17 +3,18 @@ import { SessionCreateForm } from "@/components/SessionCreateForm";
 
 export const metadata = { title: "New session — ForgeRise" };
 
-export default function NewSessionPage({
+export default async function NewSessionPage({
   params,
 }: {
-  params: { teamId: string };
+  params: Promise<{ teamId: string }>;
 }) {
+  const { teamId } = await params;
   return (
     <main className="min-h-screen bg-mist-grey">
       <header className="bg-white border-b border-slate/10">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center justify-between">
           <Link
-            href={`/teams/${params.teamId}`}
+            href={`/teams/${teamId}`}
             className="text-sm text-slate underline"
           >
             ← Team
@@ -36,7 +37,7 @@ export default function NewSessionPage({
         </div>
 
         <div className="rounded-card bg-white p-6 shadow-soft">
-          <SessionCreateForm teamId={params.teamId} />
+          <SessionCreateForm teamId={teamId} />
         </div>
       </section>
     </main>
