@@ -81,6 +81,16 @@ export default async function TeamDetailPage({
       ? sessionsResp.data.slice(0, 10)
       : [];
 
+  // Surface a small badge in the header when there are self-reported
+  // incidents waiting on coach acknowledgement, so they can’t be missed.
+  const unreadIncidentsResp = await serverFetchApi<{ id: string }[]>(
+    `/teams/${teamId}/incidents?status=unread`,
+  );
+  const unreadIncidentCount =
+    unreadIncidentsResp.ok && Array.isArray(unreadIncidentsResp.data)
+      ? unreadIncidentsResp.data.length
+      : 0;
+
   const coachesResp = await serverFetchApi<CoachRow[]>(
     `/teams/${teamId}/coaches`,
   );
@@ -154,6 +164,16 @@ export default async function TeamDetailPage({
             >
               View readiness board →
             </Link>
+            {unreadIncidentCount > 0 && (
+              <Link
+                href={`/teams/${team.data.id}/welfare`}
+                data-testid="needs-review-badge"
+                className="rounded-pill bg-readiness-modify/15 text-readiness-modify px-2 py-0.5 text-xs font-medium hover:bg-readiness-modify/25"
+              >
+                {unreadIncidentCount} need
+                {unreadIncidentCount === 1 ? "s" : ""} review
+              </Link>
+            )}
             <Link
               href={`/teams/${team.data.id}/session-plans`}
               className="text-rise-copper hover:underline"
