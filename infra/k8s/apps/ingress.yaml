@@ -16,9 +16,6 @@ metadata:
     cert-manager.io/cluster-issuer: ${TLS_ISSUER}
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
-    # Enforce HTTPS — Traefik redirect middleware (configured cluster-side as
-    # `default-headers@kubernetescrd` and `redirect-https@kubernetescrd`).
-    traefik.ingress.kubernetes.io/router.middlewares: kube-system-redirect-https@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:

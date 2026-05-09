@@ -38,7 +38,7 @@ spec:
       # GHCR images are private; the secret is created out-of-band by
       # infra/scripts/create-ghcr-pull-secret.sh (once per namespace).
       imagePullSecrets:
-        - name: ghcr-pull
+        - name: ghcr-credentials
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

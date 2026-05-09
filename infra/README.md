@@ -29,28 +29,9 @@ in `pnpm.auditConfig.ignoreGhsas` of the root [package.json](../package.json)
   apex `forgerise.cloudproject.dev` already does. Confirm/add the `dev` and
   `staging` CNAMEs/A-records before deploying those environments.
 
-## Two manual unlocks (still TODO — agent could not perform without secrets)
+## One manual unlock (still TODO — agent could not perform without secrets)
 
-### 1. Make GHCR images pullable from the cluster
-
-Pick one:
-
-**a. Make the packages public** (simplest). At
-`https://github.com/users/johnmccabe2014/packages/container/forgerise-api/settings`
-and the matching `forgerise-web` page → *Change visibility → Public*. After
-this, no pull secret is needed and the `imagePullSecrets: [{name: ghcr-pull}]`
-in [`api.yaml`](k8s/apps/api.yaml) / [`web.yaml`](k8s/apps/web.yaml) becomes a
-no-op (a missing pullSecret with no `imagePullPolicy: Always` is silently
-ignored on Public images).
-
-**b. Create a pull secret with a PAT** (`read:packages` scope):
-
-```bash
-GHCR_USER=johnmccabe2014 GHCR_TOKEN=ghp_xxx \
-  infra/scripts/create-ghcr-pull-secret.sh forgerise-dev
-```
-
-### 2. Register the self-hosted GitHub Actions runner
+### Register the self-hosted GitHub Actions runner
 
 Generate a registration token at
 `https://github.com/johnmccabe2014/forgerise/settings/actions/runners/new`
@@ -69,10 +50,26 @@ permissions on `/etc/rancher/k3s/k3s.yaml`.
 A runner already exists on this host bound to the `triforge` repo. The script
 installs into a separate directory (`~/forgerise-runner`) so they coexist.
 
+### GHCR pull secret (already done — copied from `anp` namespace)
+
+The shared k3s cluster has a `ghcr-credentials` Secret in the `anp` namespace
+with a PAT that can read `ghcr.io/johnmccabe2014/*`. Bootstrap copies it into
+`forgerise-{dev,staging,prod}`:
+
+```bash
+infra/scripts/create-ghcr-pull-secret.sh forgerise-dev
+infra/scripts/create-ghcr-pull-secret.sh forgerise-staging
+infra/scripts/create-ghcr-pull-secret.sh forgerise-prod
+```
+
+The deployment manifests reference `imagePullSecrets: [{name: ghcr-credentials}]`
+(matching the convention used by other apps on this cluster). If you ever need
+a fresh secret with your own PAT (`read:packages`), pass `--new` and set
+`GHCR_USER` + `GHCR_TOKEN`.
+
 ## Initial dev rollout
 
-The agent applied the items below up to step 4. Step 5 is blocked behind the
-two manual unlocks above.
+The agent applied steps 1–5. Auto-deploy turns on after the runner is registered.
 
 ```bash
 # 1. Namespaces (one-time, all envs)
@@ -95,9 +92,8 @@ kubectl -n forgerise-dev create secret generic forgerise-api \
 # 3. In-cluster Postgres for dev (emptyDir — ephemeral)
 kubectl apply -f infra/k8s/postgres-dev.yaml
 
-# 4. GHCR pull secret (one of the two unlocks above)
-GHCR_USER=johnmccabe2014 GHCR_TOKEN=... \
-  infra/scripts/create-ghcr-pull-secret.sh forgerise-dev
+# 4. GHCR pull secret (copied from anp namespace)
+infra/scripts/create-ghcr-pull-secret.sh forgerise-dev
 
 # 5. App rollout (manual; equivalent to deploy.yml apply step)
 IMAGE_TAG=$(git rev-parse origin/main) infra/scripts/deploy-dev.sh
