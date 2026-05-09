@@ -21,7 +21,9 @@ public sealed record DrillCataloguePrefDto(
     string Description,
     int DurationMinutes,
     IReadOnlyList<string> Tags,
-    string? Status); // "favourite" | "exclude" | null
+    string? Status, // "favourite" | "exclude" | null
+    DateTimeOffset? UpdatedAt = null,
+    string? LastChangedByDisplayName = null);
 
 public sealed record SetDrillPreferenceRequest(string Status);
 
@@ -47,14 +49,29 @@ public sealed class DrillPreferencesController : ControllerBase
 
         var existing = await _db.TeamDrillPreferences
             .Where(p => p.TeamId == teamId)
-            .ToDictionaryAsync(p => p.DrillId, p => p.Status, ct);
+            .ToListAsync(ct);
+        var byDrill = existing.ToDictionary(p => p.DrillId);
+        var actorIds = existing
+            .Where(p => p.LastChangedByUserId is not null)
+            .Select(p => p.LastChangedByUserId!.Value)
+            .Distinct()
+            .ToArray();
+        var nameById = actorIds.Length == 0
+            ? new Dictionary<Guid, string>()
+            : await _db.Users
+                .Where(u => actorIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
 
         var rows = DrillCatalogue.All.Select(d =>
         {
-            string? status = existing.TryGetValue(d.Id, out var s)
-                ? (s == DrillPreferenceStatus.Favourite ? "favourite" : "exclude")
-                : null;
-            return new DrillCataloguePrefDto(d.Id, d.Title, d.Description, d.DurationMinutes, d.Tags, status);
+            if (!byDrill.TryGetValue(d.Id, out var pref))
+            {
+                return new DrillCataloguePrefDto(d.Id, d.Title, d.Description, d.DurationMinutes, d.Tags, null);
+            }
+            string status = pref.Status == DrillPreferenceStatus.Favourite ? "favourite" : "exclude";
+            string? actor = pref.LastChangedByUserId is { } id && nameById.TryGetValue(id, out var n) ? n : null;
+            return new DrillCataloguePrefDto(d.Id, d.Title, d.Description, d.DurationMinutes, d.Tags,
+                status, pref.UpdatedAt, actor);
         }).ToList();
 
         return Ok(rows);
@@ -83,6 +100,7 @@ public sealed class DrillPreferencesController : ControllerBase
         }
 
         var now = _time.GetUtcNow();
+        var actor = User.TryGetUserId();
         var row = await _db.TeamDrillPreferences
             .FirstOrDefaultAsync(p => p.TeamId == teamId && p.DrillId == drillId, ct);
         if (row is null)
@@ -94,12 +112,14 @@ public sealed class DrillPreferencesController : ControllerBase
                 Status = parsed,
                 CreatedAt = now,
                 UpdatedAt = now,
+                LastChangedByUserId = actor,
             });
         }
         else
         {
             row.Status = parsed;
             row.UpdatedAt = now;
+            row.LastChangedByUserId = actor;
         }
         await _db.SaveChangesAsync(ct);
         return NoContent();

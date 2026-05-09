@@ -10,6 +10,15 @@ interface DrillCataloguePrefDto {
   durationMinutes: number;
   tags: string[];
   status: "favourite" | "exclude" | null;
+  updatedAt?: string | null;
+  lastChangedByDisplayName?: string | null;
+}
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    day: "2-digit",
+    month: "short",
+  });
 }
 
 export const dynamic = "force-dynamic";
@@ -85,6 +94,18 @@ export default async function DrillPreferencesPage({
                 <p className="text-xs text-slate mt-1">
                   {d.tags.join(" · ")}
                 </p>
+                {d.status && d.updatedAt && (
+                  <p
+                    data-testid={`pref-meta-${d.drillId}`}
+                    className="text-xs text-slate/80 mt-1"
+                  >
+                    {d.status === "favourite" ? "Favourited" : "Excluded"}{" "}
+                    {fmtDate(d.updatedAt)}
+                    {d.lastChangedByDisplayName
+                      ? ` by ${d.lastChangedByDisplayName}`
+                      : ""}
+                  </p>
+                )}
               </div>
               <DrillPreferenceToggle
                 teamId={teamId}

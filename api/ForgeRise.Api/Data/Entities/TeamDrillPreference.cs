@@ -23,4 +23,10 @@ public sealed class TeamDrillPreference
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// User id of the coach who last set this preference. Helps surface
+    /// "set by X on Y" on the prefs page so changes are traceable.
+    /// </summary>
+    public Guid? LastChangedByUserId { get; set; }
 }

@@ -26,7 +26,8 @@ public class DrillPreferencesTests : IClassFixture<ForgeRiseFactory>
     }
 
     private sealed record DrillCataloguePrefRow(
-        string DrillId, string Title, string Description, int DurationMinutes, List<string> Tags, string? Status);
+        string DrillId, string Title, string Description, int DurationMinutes, List<string> Tags, string? Status,
+        DateTimeOffset? UpdatedAt = null, string? LastChangedByDisplayName = null);
 
     [Fact]
     public async Task List_returns_full_catalogue_with_null_status_by_default()
@@ -37,6 +38,22 @@ public class DrillPreferencesTests : IClassFixture<ForgeRiseFactory>
         Assert.NotNull(rows);
         Assert.True(rows!.Count >= 5);
         Assert.All(rows, r => Assert.Null(r.Status));
+    }
+
+    [Fact]
+    public async Task Set_records_actor_and_timestamp()
+    {
+        var (client, teamId) = await Seed("dp-meta");
+        (await client.PutAsJsonAsync(
+            $"/teams/{teamId}/drill-preferences/conditioned-game", new { status = "favourite" }))
+            .EnsureSuccessStatusCode();
+
+        var rows = await client.GetFromJsonAsync<List<DrillCataloguePrefRow>>(
+            $"/teams/{teamId}/drill-preferences");
+        var row = Assert.Single(rows!, r => r.DrillId == "conditioned-game");
+        Assert.Equal("favourite", row.Status);
+        Assert.NotNull(row.UpdatedAt);
+        Assert.False(string.IsNullOrEmpty(row.LastChangedByDisplayName));
     }
 
     [Fact]
