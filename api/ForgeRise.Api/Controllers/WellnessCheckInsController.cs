@@ -27,7 +27,7 @@ public sealed class WellnessCheckInsController : ControllerBase
     }
 
     private static CheckInSummaryDto ToSummary(WellnessCheckIn c) =>
-        new(c.Id, c.PlayerId, c.AsOf, c.Category, SafeCategoryLabels.Label(c.Category));
+        new(c.Id, c.PlayerId, c.AsOf, c.Category, SafeCategoryLabels.Label(c.Category), c.SubmittedBySelf);
 
     private static CheckInRawDto ToRaw(WellnessCheckIn c) => new(
         c.Id, c.PlayerId, c.AsOf,
@@ -50,7 +50,7 @@ public sealed class WellnessCheckInsController : ControllerBase
                 Latest = _db.WellnessCheckIns
                     .Where(c => c.PlayerId == p.Id)
                     .OrderByDescending(c => c.AsOf)
-                    .Select(c => new { c.Category, c.AsOf })
+                    .Select(c => new { c.Category, c.AsOf, c.SubmittedBySelf })
                     .FirstOrDefault(),
             })
             .ToListAsync(ct);
@@ -59,7 +59,8 @@ public sealed class WellnessCheckInsController : ControllerBase
             .Where(r => r.Latest is not null)
             .Select(r => new TeamReadinessDto(
                 r.Id, r.DisplayName, r.Latest!.Category,
-                SafeCategoryLabels.Label(r.Latest.Category), r.Latest.AsOf))
+                SafeCategoryLabels.Label(r.Latest.Category), r.Latest.AsOf,
+                r.Latest.SubmittedBySelf))
             .ToList();
 
         return Ok(dto);

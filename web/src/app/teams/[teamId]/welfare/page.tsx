@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { ReadinessBadge } from "@/components/ReadinessBadge";
+import { SelfSubmittedPill } from "@/components/SelfSubmittedPill";
 import {
   READINESS_CATEGORIES,
   READINESS_LABELS,
@@ -24,6 +25,7 @@ interface TeamReadinessRow {
   category: number; // SafeCategory: 0 Ready, 1 Monitor, 2 ModifyLoad, 3 RecoveryFocus
   categoryLabel: string;
   asOf: string;
+  submittedBySelf: boolean;
 }
 
 const SAFE_CATEGORY_TO_READINESS: Record<number, ReadinessCategory> = {
@@ -153,9 +155,12 @@ export default async function WelfareDashboardPage({
                       >
                         <Link
                           href={`/teams/${teamId}/players/${row.playerId}`}
-                          className="text-sm text-deep-charcoal hover:underline truncate"
+                          className="flex min-w-0 items-center gap-2 text-sm text-deep-charcoal hover:underline"
                         >
-                          {row.playerDisplayName}
+                          <span className="truncate">
+                            {row.playerDisplayName}
+                          </span>
+                          {row.submittedBySelf && <SelfSubmittedPill />}
                         </Link>
                         <span className="shrink-0 text-xs text-slate">
                           {fmtRelative(row.asOf)}

@@ -81,6 +81,7 @@ public class WelfareEndpointsTests : IClassFixture<ForgeRiseFactory>
         Assert.Single(rows!);
         Assert.Equal(SafeCategory.Ready, rows![0].Category);
         Assert.Equal("Ready", rows[0].CategoryLabel);
+        Assert.False(rows[0].SubmittedBySelf);
     }
 
     [Fact]

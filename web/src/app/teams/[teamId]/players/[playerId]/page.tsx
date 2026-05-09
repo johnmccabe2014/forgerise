@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { ReadinessBadge } from "@/components/ReadinessBadge";
+import { SelfSubmittedPill } from "@/components/SelfSubmittedPill";
 import {
   PlayerInvitePanel,
   type PlayerInviteRow,
@@ -40,6 +41,7 @@ interface CheckInSummaryDto {
   asOf: string;
   category: number; // SafeCategory: 0 Ready, 1 Monitor, 2 ModifyLoad, 3 RecoveryFocus
   categoryLabel: string;
+  submittedBySelf: boolean;
 }
 
 interface IncidentSummaryDto {
@@ -273,9 +275,12 @@ export default async function PlayerProfilePage({
               {checkins.slice(0, 12).map((c) => (
                 <li
                   key={c.id}
-                  className="flex items-center justify-between py-2"
+                  className="flex items-center justify-between gap-2 py-2"
                 >
-                  <p className="text-xs text-slate">{fmtDate(c.asOf)}</p>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="text-xs text-slate">{fmtDate(c.asOf)}</p>
+                    {c.submittedBySelf && <SelfSubmittedPill />}
+                  </div>
                   <ReadinessBadge
                     category={SAFE_CATEGORY_TO_READINESS[c.category]}
                   />

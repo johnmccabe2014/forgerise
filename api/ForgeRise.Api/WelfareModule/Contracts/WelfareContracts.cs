@@ -16,7 +16,7 @@ public sealed class CreateCheckInRequest
 }
 
 /// <summary>Coach-safe view of a check-in. NEVER includes raw scores or notes.</summary>
-public sealed record CheckInSummaryDto(Guid Id, Guid PlayerId, DateTimeOffset AsOf, SafeCategory Category, string CategoryLabel);
+public sealed record CheckInSummaryDto(Guid Id, Guid PlayerId, DateTimeOffset AsOf, SafeCategory Category, string CategoryLabel, bool SubmittedBySelf);
 
 /// <summary>Owner-only raw view, returned only by the audited /raw endpoint.</summary>
 public sealed record CheckInRawDto(
@@ -32,7 +32,7 @@ public sealed record CheckInRawDto(
     SafeCategory Category,
     DateTimeOffset? RawPurgedAt);
 
-public sealed record TeamReadinessDto(Guid PlayerId, string PlayerDisplayName, SafeCategory Category, string CategoryLabel, DateTimeOffset AsOf);
+public sealed record TeamReadinessDto(Guid PlayerId, string PlayerDisplayName, SafeCategory Category, string CategoryLabel, DateTimeOffset AsOf, bool SubmittedBySelf);
 
 public sealed class CreateIncidentRequest
 {

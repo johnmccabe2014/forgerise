@@ -89,6 +89,18 @@ public class PlayerSelfServiceTests : IClassFixture<ForgeRiseFactory>
             $"/me/players/{roster.Id}/checkins");
         Assert.Single(list!);
         Assert.True(list![0].SubmittedBySelf);
+
+        // Coach-facing summary surfaces the same provenance flag (it's
+        // metadata, not raw welfare — safe under master prompt §9).
+        var coachSummary = await coach.GetFromJsonAsync<List<CheckInSummaryDto>>(
+            $"/teams/{team.Id}/players/{roster.Id}/checkins");
+        Assert.Single(coachSummary!);
+        Assert.True(coachSummary![0].SubmittedBySelf);
+
+        var readiness = await coach.GetFromJsonAsync<List<TeamReadinessDto>>(
+            $"/teams/{team.Id}/readiness");
+        Assert.Single(readiness!);
+        Assert.True(readiness![0].SubmittedBySelf);
     }
 
     [Fact]
