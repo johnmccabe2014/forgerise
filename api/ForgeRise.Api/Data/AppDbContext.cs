@@ -22,6 +22,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<PlayerLink> PlayerLinks => Set<PlayerLink>();
     public DbSet<PlayerInvite> PlayerInvites => Set<PlayerInvite>();
     public DbSet<TeamActivitySeen> TeamActivitySeens => Set<TeamActivitySeen>();
+    public DbSet<TeamDrillPreference> TeamDrillPreferences => Set<TeamDrillPreference>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -205,6 +206,14 @@ public sealed class AppDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.TeamId, x.UserId }).IsUnique();
+        });
+
+        b.Entity<TeamDrillPreference>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.DrillId).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Status).HasConversion<int>();
+            e.HasIndex(x => new { x.TeamId, x.DrillId }).IsUnique();
         });
     }
 }

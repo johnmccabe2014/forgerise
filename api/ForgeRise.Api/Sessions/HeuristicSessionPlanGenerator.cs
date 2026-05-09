@@ -26,7 +26,12 @@ public sealed class HeuristicSessionPlanGenerator : ISessionPlanGenerator
 
         var blocks = BuildBlocks(intensity, focus);
         var summary = BuildSummary(intensity, focus, context);
-        var recommendations = DrillRecommender.Recommend(intensity, focus, context.HasRecentSelfIncident);
+        var recommendations = DrillRecommender.Recommend(
+            intensity,
+            focus,
+            context.HasRecentSelfIncident,
+            favouriteDrillIds: context.FavouriteDrillIds,
+            excludedDrillIds: context.ExcludedDrillIds);
 
         return Task.FromResult(new GeneratedPlan(focus, summary, blocks, context.Readiness, recommendations));
     }

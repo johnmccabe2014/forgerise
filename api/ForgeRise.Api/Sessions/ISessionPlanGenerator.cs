@@ -11,7 +11,9 @@ public sealed record SessionPlanContext(
     string? PreviousSessionReview,
     DateTimeOffset GeneratedAt,
     IReadOnlyList<PlayerReadiness> Readiness,
-    bool HasRecentSelfIncident = false);
+    bool HasRecentSelfIncident = false,
+    IReadOnlySet<string>? FavouriteDrillIds = null,
+    IReadOnlySet<string>? ExcludedDrillIds = null);
 
 public sealed record PlanBlock(string Block, string Title, int DurationMinutes, string Intent, string Intensity);
 

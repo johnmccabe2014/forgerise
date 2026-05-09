@@ -159,6 +159,12 @@ export default async function TeamDetailPage({
             >
               Session plans →
             </Link>
+            <Link
+              href={`/teams/${team.data.id}/drill-preferences`}
+              className="text-rise-copper hover:underline"
+            >
+              Drill preferences →
+            </Link>
           </p>
         </div>
 

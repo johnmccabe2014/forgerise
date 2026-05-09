@@ -124,6 +124,22 @@ public sealed class SessionPlansController : ControllerBase
                        && i.CreatedAt >= incidentCutoff, ct);
         var hasRecentSelfIncident = recentSelfIncidentCount > 0;
 
+        // Per-team drill preferences let coaches steer the recommender without
+        // touching the static catalogue: favourites get prioritised, excludes
+        // are filtered out entirely.
+        var prefs = await _db.TeamDrillPreferences
+            .Where(p => p.TeamId == teamId)
+            .Select(p => new { p.DrillId, p.Status })
+            .ToListAsync(ct);
+        var favourites = prefs
+            .Where(p => p.Status == DrillPreferenceStatus.Favourite)
+            .Select(p => p.DrillId)
+            .ToHashSet(StringComparer.Ordinal);
+        var excludes = prefs
+            .Where(p => p.Status == DrillPreferenceStatus.Exclude)
+            .Select(p => p.DrillId)
+            .ToHashSet(StringComparer.Ordinal);
+
         var ctx = new SessionPlanContext(
             TeamId: teamId,
             FocusOverride: request.Focus,
@@ -131,7 +147,9 @@ public sealed class SessionPlansController : ControllerBase
             PreviousSessionReview: basis?.ReviewNotes,
             GeneratedAt: _time.GetUtcNow(),
             Readiness: snapshot,
-            HasRecentSelfIncident: hasRecentSelfIncident);
+            HasRecentSelfIncident: hasRecentSelfIncident,
+            FavouriteDrillIds: favourites,
+            ExcludedDrillIds: excludes);
 
         var generated = await _generator.GenerateAsync(ctx, ct);
 

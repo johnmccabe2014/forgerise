@@ -24,12 +24,16 @@ public static class DrillRecommender
         string intensity,
         string? focus,
         bool hasRecentSelfIncident,
-        int max = 4)
+        int max = 4,
+        IReadOnlySet<string>? favouriteDrillIds = null,
+        IReadOnlySet<string>? excludedDrillIds = null)
     {
         var picks = new List<DrillRecommendation>();
         var focusLower = (focus ?? string.Empty).ToLowerInvariant();
         var focusForRationale = focus ?? string.Empty;
         var requireLowContact = intensity == "Recovery emphasis" || hasRecentSelfIncident;
+        var favourites = favouriteDrillIds ?? new HashSet<string>();
+        var excludes = excludedDrillIds ?? new HashSet<string>();
 
         bool MatchesFocus(Drill d) =>
             (focusLower.Contains("scrum") && d.Tags.Contains("scrum")) ||
@@ -39,19 +43,32 @@ public static class DrillRecommender
             (focusLower.Contains("defense") && d.Tags.Contains("team_shape")) ||
             (focusLower.Contains("kick") && d.Tags.Contains("kick"));
 
-        IEnumerable<Drill> pool = DrillCatalogue.All;
+        IEnumerable<Drill> pool = DrillCatalogue.All.Where(d => !excludes.Contains(d.Id));
         if (requireLowContact) pool = pool.Where(d => d.Tags.Contains("low_contact"));
+        var poolList = pool.ToList();
 
-        // Pass 1: focus-matched.
-        foreach (var d in pool.Where(MatchesFocus))
+        DrillRecommendation Build(Drill d, bool focusMatch) =>
+            new(d.Id, d.Title, d.Description, d.DurationMinutes,
+                Rationale(d, intensity, focusForRationale, hasRecentSelfIncident,
+                    focusMatch: focusMatch, isFavourite: favourites.Contains(d.Id)),
+                d.Tags);
+
+        // Pass 0: team favourites win first (still respect low-contact gate via pool).
+        foreach (var d in poolList.Where(d => favourites.Contains(d.Id)))
         {
             if (picks.Count >= max) break;
-            picks.Add(new DrillRecommendation(d.Id, d.Title, d.Description, d.DurationMinutes,
-                Rationale(d, intensity, focusForRationale, hasRecentSelfIncident, focusMatch: true), d.Tags));
+            picks.Add(Build(d, focusMatch: MatchesFocus(d)));
+        }
+
+        // Pass 1: focus-matched.
+        foreach (var d in poolList.Where(MatchesFocus).Where(d => !picks.Any(p => p.DrillId == d.Id)))
+        {
+            if (picks.Count >= max) break;
+            picks.Add(Build(d, focusMatch: true));
         }
 
         // Pass 2: fill from intensity-appropriate defaults.
-        foreach (var d in pool.Where(d => !picks.Any(p => p.DrillId == d.Id)))
+        foreach (var d in poolList.Where(d => !picks.Any(p => p.DrillId == d.Id)))
         {
             if (picks.Count >= max) break;
             // For Recovery emphasis prefer recovery-tagged; for Reduced prefer skill/decision; Standard takes the rest.
@@ -62,27 +79,26 @@ public static class DrillRecommender
                 _ => d.Tags.Contains("game") || d.Tags.Contains("decision") || d.Tags.Contains("skill"),
             };
             if (!fits) continue;
-            picks.Add(new DrillRecommendation(d.Id, d.Title, d.Description, d.DurationMinutes,
-                Rationale(d, intensity, focusForRationale, hasRecentSelfIncident, focusMatch: false), d.Tags));
+            picks.Add(Build(d, focusMatch: false));
         }
 
         // Last-resort: ensure at least 2 picks even if filters are tight.
         if (picks.Count < 2)
         {
-            foreach (var d in pool.Where(d => !picks.Any(p => p.DrillId == d.Id)))
+            foreach (var d in poolList.Where(d => !picks.Any(p => p.DrillId == d.Id)))
             {
                 if (picks.Count >= 2) break;
-                picks.Add(new DrillRecommendation(d.Id, d.Title, d.Description, d.DurationMinutes,
-                    Rationale(d, intensity, focusForRationale, hasRecentSelfIncident, focusMatch: false), d.Tags));
+                picks.Add(Build(d, focusMatch: false));
             }
         }
 
         return picks;
     }
 
-    private static string Rationale(Drill d, string intensity, string focus, bool hasIncident, bool focusMatch)
+    private static string Rationale(Drill d, string intensity, string focus, bool hasIncident, bool focusMatch, bool isFavourite)
     {
         var bits = new List<string>();
+        if (isFavourite) bits.Add("team favourite");
         if (focusMatch && !string.IsNullOrWhiteSpace(focus)) bits.Add($"matches focus '{focus.Trim()}'");
         if (intensity == "Recovery emphasis") bits.Add("intensity bucket is Recovery");
         else if (intensity == "Reduced") bits.Add("intensity bucket is Reduced");
