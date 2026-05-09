@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export interface PlayerRowProps {
@@ -55,6 +56,12 @@ export function PlayerRow({ teamId, player }: PlayerRowProps) {
           </p>
         )}
       </div>
+      <Link
+        href={`/teams/${teamId}/players/${player.id}`}
+        className="text-sm text-rise-copper hover:underline"
+      >
+        View profile
+      </Link>
       <button
         type="button"
         onClick={onRemove}

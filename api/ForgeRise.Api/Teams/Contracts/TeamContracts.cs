@@ -89,3 +89,18 @@ public sealed record PlayerDto(
     string? Position,
     bool IsActive,
     DateTimeOffset CreatedAt);
+
+/// <summary>
+/// One row of a single player's attendance history across team sessions.
+/// Sessions where no <see cref="Data.Entities.AttendanceRecord"/> exists
+/// for this player surface as <see cref="Data.Entities.AttendanceStatus.Absent"/>
+/// so the timeline is gap-free.
+/// </summary>
+public sealed record PlayerAttendanceRowDto(
+    Guid SessionId,
+    DateTimeOffset ScheduledAt,
+    Data.Entities.SessionType Type,
+    string? Location,
+    string? Focus,
+    Data.Entities.AttendanceStatus Status,
+    string? Note);

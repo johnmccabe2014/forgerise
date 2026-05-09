@@ -42,6 +42,20 @@ public sealed class IncidentsController : ControllerBase
         return Ok(rows.Select(ToSummary));
     }
 
+    [HttpGet("players/{playerId:guid}/incidents")]
+    public async Task<IActionResult> ListForPlayer(Guid teamId, Guid playerId, CancellationToken ct)
+    {
+        var (_, _, err) = await TeamScope.RequireOwnedPlayer(this, _db, teamId, playerId, ct);
+        if (err is not null) return err;
+
+        var rows = await _db.IncidentReports
+            .Where(i => i.PlayerId == playerId)
+            .OrderByDescending(i => i.OccurredAt)
+            .ToListAsync(ct);
+
+        return Ok(rows.Select(ToSummary));
+    }
+
     [HttpPost("players/{playerId:guid}/incidents")]
     public async Task<IActionResult> Create(Guid teamId, Guid playerId, [FromBody] CreateIncidentRequest request, CancellationToken ct)
     {

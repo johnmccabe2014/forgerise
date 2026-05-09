@@ -113,4 +113,40 @@ public sealed class PlayersController : ControllerBase
         _log.LogInformation("players.deleted {PlayerId} {TeamId}", playerId, teamId);
         return NoContent();
     }
+
+    /// <summary>
+    /// Per-player attendance history. Returns one row per team session
+    /// (most-recent first) with the player's status; sessions with no
+    /// attendance record fall through as Absent so the timeline has no
+    /// gaps. Used by the player profile page.
+    /// </summary>
+    [HttpGet("{playerId:guid}/attendance")]
+    public async Task<IActionResult> Attendance(Guid teamId, Guid playerId, CancellationToken ct)
+    {
+        var (_, _, err) = await TeamScope.RequireOwnedPlayer(this, _db, teamId, playerId, ct);
+        if (err is not null) return err;
+
+        var rows = await _db.Sessions
+            .Where(s => s.TeamId == teamId)
+            .OrderByDescending(s => s.ScheduledAt)
+            .Select(s => new
+            {
+                s.Id,
+                s.ScheduledAt,
+                s.Type,
+                s.Location,
+                s.Focus,
+                Record = _db.AttendanceRecords
+                    .Where(a => a.SessionId == s.Id && a.PlayerId == playerId)
+                    .Select(a => new { a.Status, a.Note })
+                    .FirstOrDefault(),
+            })
+            .ToListAsync(ct);
+
+        var dto = rows.Select(r => new PlayerAttendanceRowDto(
+            r.Id, r.ScheduledAt, r.Type, r.Location, r.Focus,
+            r.Record is null ? AttendanceStatus.Absent : r.Record.Status,
+            r.Record?.Note));
+        return Ok(dto);
+    }
 }
