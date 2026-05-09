@@ -8,3 +8,8 @@
 # production image; standalone build, not running canary).
 GHSA-h25m-26qc-wcjf exp:2026-09-01
 GHSA-q4gf-8mx6-v5v3 exp:2026-09-01
+
+# picomatch 4.0.3 bundled inside next/dist/compiled/picomatch — vendored and
+# only used by Next's internal file matcher at build time. Cannot be overridden
+# by pnpm. Will be resolved with the Next 15 upgrade.
+CVE-2026-33671 exp:2026-09-01

@@ -41,7 +41,25 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile --filter ./web...
       - name: Audit
-        run: pnpm audit --audit-level=high
+        # Filter out advisories that are accepted/tracked separately
+        # (see .trivyignore for rationale).
+        env:
+          IGNORE: GHSA-h25m-26qc-wcjf|GHSA-q4gf-8mx6-v5v3
+        run: |
+          set -o pipefail
+          pnpm audit --json > audit.json || true
+          jq --arg ignore "$IGNORE" '
+            .advisories
+            | to_entries
+            | map(select(.value.github_advisory_id | test($ignore) | not))
+            | map(select(.value.severity == "high" or .value.severity == "critical"))
+          ' audit.json > offenders.json
+          COUNT=$(jq 'length' offenders.json)
+          echo "::notice::High/critical advisories after filtering: $COUNT"
+          if [ "$COUNT" != "0" ]; then
+            jq '.[] | {ghsa: .value.github_advisory_id, severity: .value.severity, module: .value.module_name, title: .value.title}' offenders.json
+            exit 1
+          fi
 
   dependency-scan-api:
     name: dependency scan (api / dotnet)

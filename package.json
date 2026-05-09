@@ -17,7 +17,14 @@
   "pnpm": {
     "overrides": {
       "cross-spawn": ">=7.0.6",
-      "picomatch": ">=4.0.4"
+      "picomatch": ">=4.0.4",
+      "glob": ">=10.5.0"
+    },
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-h25m-26qc-wcjf",
+        "GHSA-q4gf-8mx6-v5v3"
+      ]
     }
   }
 }
