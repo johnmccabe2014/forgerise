@@ -5,6 +5,7 @@ import { PlayerAddForm } from "@/components/PlayerAddForm";
 import { PlayerRow } from "@/components/PlayerRow";
 import { CoachesPanel, type CoachRow } from "@/components/CoachesPanel";
 import { InvitesPanel, type InviteRow } from "@/components/InvitesPanel";
+import { ActivityFeed, type ActivityEvent } from "@/components/ActivityFeed";
 import { sessionTypeLabel } from "@/lib/sessionLabels";
 import { classifyPosition } from "@/lib/rugby";
 
@@ -94,6 +95,14 @@ export default async function TeamDetailPage({
       ? invitesResp.data
       : [];
 
+  const activityResp = await serverFetchApi<ActivityEvent[]>(
+    `/teams/${teamId}/activity?limit=10`,
+  );
+  const activity =
+    activityResp.ok && Array.isArray(activityResp.data)
+      ? activityResp.data
+      : [];
+
   return (
     <main className="min-h-screen bg-mist-grey">
       <header className="bg-white border-b border-slate/10">
@@ -143,6 +152,18 @@ export default async function TeamDetailPage({
             </Link>
           </p>
         </div>
+
+        <section aria-labelledby="activity-heading" className="space-y-3">
+          <h2
+            id="activity-heading"
+            className="font-heading text-xl text-deep-charcoal"
+          >
+            Recent activity
+          </h2>
+          <div className="rounded-card bg-white p-4 shadow-soft">
+            <ActivityFeed teamId={team.data.id} events={activity} />
+          </div>
+        </section>
 
         <section aria-labelledby="coaches-heading" className="space-y-3">
           <h2
