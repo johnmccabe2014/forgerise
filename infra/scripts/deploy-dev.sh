@@ -14,7 +14,7 @@ set -euo pipefail
 
 NAMESPACE="${NAMESPACE:-forgerise-dev}"
 PUBLIC_HOST="${PUBLIC_HOST:-dev.forgerise.cloudproject.dev}"
-TLS_ISSUER="${TLS_ISSUER:-letsencrypt-prod}"
+TLS_ISSUER="${TLS_ISSUER:-letsencrypt-prod-traefik}"
 REPLICAS="${REPLICAS:-1}"
 IMAGE_TAG="${IMAGE_TAG:?IMAGE_TAG required (full git sha pushed to ghcr)}"
 REGISTRY="${REGISTRY:-ghcr.io}"

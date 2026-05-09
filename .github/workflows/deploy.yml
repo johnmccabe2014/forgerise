@@ -87,7 +87,10 @@ jobs:
             echo "namespace=$NS"
             echo "host=$HOST"
             echo "replicas=$REPLICAS"
-            echo "tls_issuer=letsencrypt-prod"
+            # Use the ForgeRise-specific issuer that solves HTTP-01 via
+            # the traefik IngressClass — public DNS for forgerise.* points
+            # at the traefik LB, not the shared nginx one.
+            echo "tls_issuer=letsencrypt-prod-traefik"
             echo "image_tag=$TAG"
           } >> "$GITHUB_OUTPUT"
 
@@ -180,17 +183,16 @@ jobs:
           HOST: ${{ needs.resolve.outputs.host }}
         run: |
           set -euo pipefail
-          # NOTE: -k tolerates traefik's self-signed default cert while the
-          # cert-manager Let's Encrypt cert is still being issued (depends on
-          # public DNS being in place). Once forgerise-tls is Ready we should
-          # drop -k and use --resolve only when needed.
+          # Strict TLS verification — the Let's Encrypt cert (issued via
+          # cert-manager + ClusterIssuer letsencrypt-prod-traefik) must be
+          # valid for ${HOST}.
           echo "::group::GET https://${HOST}/"
-          curl -fksS --max-time 10 -o /dev/null -w "web    %{http_code}\n" "https://${HOST}/"
+          curl -fsS --max-time 10 -o /dev/null -w "web    %{http_code}\n" "https://${HOST}/"
           echo "::endgroup::"
 
           echo "::group::GET https://${HOST}/api/proxy/health"
           # Validates the Next /api/proxy/[...path] handler can reach the API in-cluster.
-          curl -fksS --max-time 10 -o /dev/null -w "proxy  %{http_code}\n" "https://${HOST}/api/proxy/health"
+          curl -fsS --max-time 10 -o /dev/null -w "proxy  %{http_code}\n" "https://${HOST}/api/proxy/health"
           echo "::endgroup::"
 
       - name: On failure — print rollback commands

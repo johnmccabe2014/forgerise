@@ -1,0 +1,41 @@
+---
+# ForgeRise-specific ClusterIssuers that route the ACME HTTP-01 challenge
+# through the Traefik IngressClass.
+#
+# The shared `letsencrypt-prod` / `letsencrypt-staging` issuers on this
+# cluster are configured for the `nginx` ingress class (used by other
+# tenants like anp). Public DNS for *.forgerise.cloudproject.dev points at
+# the Traefik LoadBalancer (185.249.197.69), so the solver Ingress must be
+# served by Traefik or LE will get a 404 from the wrong controller.
+#
+# Apply once during bootstrap:
+#   kubectl apply -f infra/k8s/cluster-issuers.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod-traefik
+spec:
+  acme:
+    email: info@recaptureone.ie
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod-traefik-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: traefik
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging-traefik
+spec:
+  acme:
+    email: info@recaptureone.ie
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-staging-traefik-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: traefik
