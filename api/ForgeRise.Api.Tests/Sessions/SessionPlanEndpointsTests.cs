@@ -290,4 +290,69 @@ public class SessionPlanEndpointsTests : IClassFixture<ForgeRiseFactory>
         var unpinned = (await unpin.Content.ReadFromJsonAsync<SessionPlanDto>())!;
         Assert.Null(unpinned.PinnedAt);
     }
+
+    [Fact]
+    public async Task Archive_hides_plan_from_default_listing_and_toggles_back()
+    {
+        var (client, teamId, _) = await Seed("arch1");
+
+        var keeper = (await (await client.PostAsJsonAsync(
+            $"/teams/{teamId}/session-plans/generate", new { focus = "Keeper" }))
+            .Content.ReadFromJsonAsync<SessionPlanDto>())!;
+        var stale = (await (await client.PostAsJsonAsync(
+            $"/teams/{teamId}/session-plans/generate", new { focus = "Stale" }))
+            .Content.ReadFromJsonAsync<SessionPlanDto>())!;
+
+        var arch = await client.PostAsync(
+            $"/teams/{teamId}/session-plans/{stale.Id}/archive", content: null);
+        arch.EnsureSuccessStatusCode();
+        var archived = (await arch.Content.ReadFromJsonAsync<SessionPlanDto>())!;
+        Assert.NotNull(archived.ArchivedAt);
+
+        // Default list excludes archived.
+        var defaultList = await client.GetFromJsonAsync<List<SessionPlanDto>>(
+            $"/teams/{teamId}/session-plans");
+        Assert.DoesNotContain(defaultList!, p => p.Id == stale.Id);
+        Assert.Contains(defaultList!, p => p.Id == keeper.Id);
+
+        // Opt-in flag surfaces archived plans.
+        var withArchived = await client.GetFromJsonAsync<List<SessionPlanDto>>(
+            $"/teams/{teamId}/session-plans?includeArchived=true");
+        Assert.Contains(withArchived!, p => p.Id == stale.Id);
+
+        // Direct fetch still works for archived plans.
+        var direct = await client.GetFromJsonAsync<SessionPlanDto>(
+            $"/teams/{teamId}/session-plans/{stale.Id}");
+        Assert.NotNull(direct!.ArchivedAt);
+
+        // Toggling clears the archive.
+        var unarch = await client.PostAsync(
+            $"/teams/{teamId}/session-plans/{stale.Id}/archive", content: null);
+        unarch.EnsureSuccessStatusCode();
+        var unarchived = (await unarch.Content.ReadFromJsonAsync<SessionPlanDto>())!;
+        Assert.Null(unarchived.ArchivedAt);
+    }
+
+    [Fact]
+    public async Task Archive_rejects_adopted_plans()
+    {
+        var (client, teamId, _) = await Seed("arch2");
+        var plan = (await (await client.PostAsJsonAsync(
+            $"/teams/{teamId}/session-plans/generate", new { focus = "Adopt me" }))
+            .Content.ReadFromJsonAsync<SessionPlanDto>())!;
+
+        var adopt = await client.PostAsJsonAsync(
+            $"/teams/{teamId}/session-plans/{plan.Id}/adopt",
+            new
+            {
+                scheduledAt = DateTimeOffset.UtcNow.AddDays(1),
+                durationMinutes = 75,
+                type = (int)Data.Entities.SessionType.Training,
+            });
+        adopt.EnsureSuccessStatusCode();
+
+        var resp = await client.PostAsync(
+            $"/teams/{teamId}/session-plans/{plan.Id}/archive", content: null);
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
 }

@@ -18,6 +18,7 @@ interface SessionPlanRow {
   blocks: { intensity: string }[];
   readinessSnapshot: { playerId: string; category: number }[];
   pinnedAt?: string | null;
+  archivedAt?: string | null;
 }
 
 const INTENSITY_STYLE: Record<string, string> = {
@@ -43,10 +44,15 @@ export const metadata = { title: "Session plans — ForgeRise" };
 
 export default async function SessionPlansListPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ teamId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { teamId } = await params;
+  const sp = await searchParams;
+  const archivedRaw = Array.isArray(sp.archived) ? sp.archived[0] : sp.archived;
+  const showArchived = archivedRaw === "1" || archivedRaw === "true";
   const team = await serverFetchApi<TeamDto>(`/teams/${teamId}`);
   if (!team.ok) {
     if (team.status === 401) redirect("/login");
@@ -54,7 +60,7 @@ export default async function SessionPlansListPage({
   }
 
   const plansResp = await serverFetchApi<SessionPlanRow[]>(
-    `/teams/${teamId}/session-plans`,
+    `/teams/${teamId}/session-plans${showArchived ? "?includeArchived=true" : ""}`,
   );
   const plans =
     plansResp.ok && Array.isArray(plansResp.data) ? plansResp.data : [];
@@ -101,12 +107,25 @@ export default async function SessionPlansListPage({
         </section>
 
         <section aria-labelledby="recent-heading" className="space-y-3">
-          <h2
-            id="recent-heading"
-            className="font-heading text-xl text-deep-charcoal"
-          >
-            Recent plans
-          </h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2
+              id="recent-heading"
+              className="font-heading text-xl text-deep-charcoal"
+            >
+              Recent plans
+            </h2>
+            <Link
+              data-testid="plans-archive-toggle"
+              href={
+                showArchived
+                  ? `/teams/${teamId}/session-plans`
+                  : `/teams/${teamId}/session-plans?archived=1`
+              }
+              className="text-xs text-rise-copper hover:underline"
+            >
+              {showArchived ? "Hide archived" : "Show archived"}
+            </Link>
+          </div>
           {plans.length === 0 ? (
             <div className="rounded-card bg-white p-6 shadow-soft text-slate">
               No plans yet. Generate one above to seed your next session.
@@ -122,7 +141,12 @@ export default async function SessionPlansListPage({
                   <li key={p.id}>
                     <Link
                       href={`/teams/${teamId}/session-plans/${p.id}`}
-                      className="block rounded-card bg-white p-4 shadow-soft hover:shadow-md transition"
+                      className={`block rounded-card p-4 shadow-soft hover:shadow-md transition ${
+                        p.archivedAt
+                          ? "bg-mist-grey/60 opacity-70"
+                          : "bg-white"
+                      }`}
+                      data-testid={p.archivedAt ? `plan-archived-${p.id}` : undefined}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -137,6 +161,11 @@ export default async function SessionPlansListPage({
                               </span>
                             )}
                             {p.focus}
+                            {p.archivedAt && (
+                              <span className="ml-2 text-xs font-normal text-slate">
+                                (archived)
+                              </span>
+                            )}
                           </p>
                           <p className="text-xs text-slate">
                             {fmtWhen(p.generatedAt)} ·{" "}

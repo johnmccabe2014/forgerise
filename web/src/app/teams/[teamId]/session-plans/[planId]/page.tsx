@@ -5,6 +5,7 @@ import { READINESS_LABELS, type ReadinessCategory } from "@/types/welfare";
 import { RegeneratePlanButton } from "@/components/RegeneratePlanButton";
 import { AdoptPlanForm } from "@/components/AdoptPlanForm";
 import { PinPlanButton } from "@/components/PinPlanButton";
+import { ArchivePlanButton } from "@/components/ArchivePlanButton";
 
 interface PlanBlockDto {
   block: string;
@@ -42,6 +43,7 @@ interface SessionPlanDto {
   adoptedAt?: string | null;
   adoptedSessionId?: string | null;
   pinnedAt?: string | null;
+  archivedAt?: string | null;
 }
 
 const SAFE_CATEGORY_TO_READINESS: Record<number, ReadinessCategory> = {
@@ -187,6 +189,12 @@ export default async function SessionPlanDetailPage({
               teamId={teamId}
               planId={plan.id}
               pinned={Boolean(plan.pinnedAt)}
+            />
+            <ArchivePlanButton
+              teamId={teamId}
+              planId={plan.id}
+              archived={Boolean(plan.archivedAt)}
+              adopted={Boolean(plan.adoptedAt)}
             />
           </div>
         </div>

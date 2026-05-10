@@ -43,4 +43,13 @@ public sealed class SessionPlan
     /// across regenerations. Toggle via the pin endpoint.
     /// </summary>
     public DateTimeOffset? PinnedAt { get; set; }
+
+    /// <summary>
+    /// When set, this plan has been archived (soft-deleted) by a coach and
+    /// is hidden from the default listing. Adopted plans cannot be archived
+    /// — the linked session is the source of truth from that point on.
+    /// Archived plans can still be fetched directly by id, and the archive
+    /// can be reversed via the same endpoint.
+    /// </summary>
+    public DateTimeOffset? ArchivedAt { get; set; }
 }

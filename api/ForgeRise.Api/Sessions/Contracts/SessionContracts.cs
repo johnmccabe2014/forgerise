@@ -80,7 +80,8 @@ public sealed record SessionPlanDto(
     int RecentSelfIncidentCount = 0,
     DateTimeOffset? AdoptedAt = null,
     Guid? AdoptedSessionId = null,
-    DateTimeOffset? PinnedAt = null);
+    DateTimeOffset? PinnedAt = null,
+    DateTimeOffset? ArchivedAt = null);
 
 public sealed class AdoptSessionPlanRequest
 {

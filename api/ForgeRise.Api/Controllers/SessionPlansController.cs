@@ -46,17 +46,21 @@ public sealed class SessionPlansController : ControllerBase
                    ?? new List<SessionPlanRecommendationDto>();
         return new SessionPlanDto(plan.Id, plan.TeamId, plan.GeneratedAt, plan.BasedOnSessionId,
             plan.Focus, plan.Summary, blocks, snapshot, recs, plan.RecentSelfIncidentCount,
-            plan.AdoptedAt, plan.AdoptedSessionId, plan.PinnedAt);
+            plan.AdoptedAt, plan.AdoptedSessionId, plan.PinnedAt, plan.ArchivedAt);
     }
 
     [HttpGet]
-    public async Task<IActionResult> List(Guid teamId, CancellationToken ct)
+    public async Task<IActionResult> List(Guid teamId, [FromQuery] bool includeArchived, CancellationToken ct)
     {
         var (_, err) = await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
         if (err is not null) return err;
 
-        var plans = await _db.SessionPlans
-            .Where(p => p.TeamId == teamId)
+        var query = _db.SessionPlans.Where(p => p.TeamId == teamId);
+        // Default listing hides archived plans. Coaches can opt back in via
+        // ?includeArchived=true to see (and unarchive) old work.
+        if (!includeArchived) query = query.Where(p => p.ArchivedAt == null);
+
+        var plans = await query
             // Pinned plans float to the top, then most recent first.
             .OrderByDescending(p => p.PinnedAt != null)
             .ThenByDescending(p => p.PinnedAt)
@@ -275,6 +279,34 @@ public sealed class SessionPlansController : ControllerBase
         if (plan is null) return NotFound();
 
         plan.PinnedAt = plan.PinnedAt is null ? _time.GetUtcNow() : null;
+        await _db.SaveChangesAsync(ct);
+        return Ok(Materialise(plan));
+    }
+
+    /// <summary>
+    /// Toggle archive state on a plan. Archived plans are hidden from the
+    /// default listing but remain fetchable by id; surface them with
+    /// ?includeArchived=true. Adopted plans cannot be archived — the
+    /// derived session is the source of truth from that point on.
+    /// </summary>
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> ToggleArchive(Guid teamId, Guid id, CancellationToken ct)
+    {
+        var (_, err) = await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
+        if (err is not null) return err;
+
+        var plan = await _db.SessionPlans.FirstOrDefaultAsync(p => p.Id == id && p.TeamId == teamId, ct);
+        if (plan is null) return NotFound();
+
+        if (plan.ArchivedAt is null && plan.AdoptedAt is not null)
+        {
+            return ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]>
+            {
+                ["plan"] = new[] { "adopted plans cannot be archived" },
+            }));
+        }
+
+        plan.ArchivedAt = plan.ArchivedAt is null ? _time.GetUtcNow() : null;
         await _db.SaveChangesAsync(ct);
         return Ok(Materialise(plan));
     }
