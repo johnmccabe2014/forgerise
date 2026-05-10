@@ -27,10 +27,25 @@ export const metadata = { title: "Drill preferences — ForgeRise" };
 
 export default async function DrillPreferencesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ teamId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { teamId } = await params;
+  const sp = await searchParams;
+  const pickStr = (v: string | string[] | undefined) =>
+    Array.isArray(v) ? v[0] ?? "" : v ?? "";
+  const q = pickStr(sp.q).trim();
+  const qLower = q.toLowerCase();
+  const tag = pickStr(sp.tag).trim();
+  const statusFilter = pickStr(sp.status).trim() as
+    | ""
+    | "favourite"
+    | "exclude"
+    | "set"
+    | "unset";
+
   const resp = await serverFetchApi<DrillCataloguePrefDto[]>(
     `/teams/${teamId}/drill-preferences`,
   );
@@ -41,6 +56,27 @@ export default async function DrillPreferencesPage({
   const drills = resp.data;
   const favouriteCount = drills.filter((d) => d.status === "favourite").length;
   const excludeCount = drills.filter((d) => d.status === "exclude").length;
+
+  // Tags are sourced from the loaded catalogue so the dropdown can never
+  // offer a tag that isn't in scope. Sorted alphabetically for stable UI.
+  const allTags = Array.from(
+    new Set(drills.flatMap((d) => d.tags)),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const filtered = drills.filter((d) => {
+    if (tag && !d.tags.includes(tag)) return false;
+    if (statusFilter === "favourite" && d.status !== "favourite") return false;
+    if (statusFilter === "exclude" && d.status !== "exclude") return false;
+    if (statusFilter === "set" && d.status === null) return false;
+    if (statusFilter === "unset" && d.status !== null) return false;
+    if (qLower) {
+      const hay = `${d.title} ${d.description} ${d.tags.join(" ")}`.toLowerCase();
+      if (!hay.includes(qLower)) return false;
+    }
+    return true;
+  });
+
+  const hasFilters = Boolean(q || tag || statusFilter);
 
   return (
     <main className="min-h-screen bg-mist-grey">
@@ -80,8 +116,81 @@ export default async function DrillPreferencesPage({
 
         <DrillPrefsImport teamId={teamId} />
 
-        <ul className="space-y-2">
-          {drills.map((d) => (
+        <form
+          method="GET"
+          data-testid="drill-prefs-filters"
+          className="rounded-card bg-white p-4 shadow-soft grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          <label className="text-xs text-slate flex flex-col gap-1 lg:col-span-2">
+            Search
+            <input
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="Title, description, or tag"
+              className="rounded border border-slate/30 bg-white px-2 py-1 text-sm text-deep-charcoal"
+            />
+          </label>
+          <label className="text-xs text-slate flex flex-col gap-1">
+            Tag
+            <select
+              name="tag"
+              defaultValue={tag}
+              className="rounded border border-slate/30 bg-white px-2 py-1 text-sm text-deep-charcoal"
+            >
+              <option value="">All tags</option>
+              {allTags.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-slate flex flex-col gap-1">
+            Preference
+            <select
+              name="status"
+              defaultValue={statusFilter}
+              className="rounded border border-slate/30 bg-white px-2 py-1 text-sm text-deep-charcoal"
+            >
+              <option value="">Any</option>
+              <option value="favourite">Favourites only</option>
+              <option value="exclude">Excluded only</option>
+              <option value="set">Any preference set</option>
+              <option value="unset">No preference yet</option>
+            </select>
+          </label>
+          <div className="sm:col-span-2 lg:col-span-4 flex items-center gap-3">
+            <button
+              type="submit"
+              className="rounded-pill bg-forge-navy px-4 py-1.5 text-sm font-medium text-white hover:bg-forge-navy/90"
+            >
+              Apply filters
+            </button>
+            {hasFilters && (
+              <Link
+                href={`/teams/${teamId}/drill-preferences`}
+                className="text-xs text-rise-copper hover:underline"
+              >
+                Clear
+              </Link>
+            )}
+            <span
+              data-testid="drill-prefs-count"
+              className="ml-auto text-xs text-slate"
+            >
+              {filtered.length} of {drills.length} drills
+            </span>
+          </div>
+        </form>
+
+        {filtered.length === 0 ? (
+          <div className="rounded-card bg-white p-6 shadow-soft text-slate text-sm">
+            No drills match those filters.
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {filtered.map((d) => (
             <li
               key={d.drillId}
               className="rounded-card bg-white p-4 shadow-soft flex items-start justify-between gap-4"
@@ -117,7 +226,8 @@ export default async function DrillPreferencesPage({
               />
             </li>
           ))}
-        </ul>
+          </ul>
+        )}
       </section>
     </main>
   );
