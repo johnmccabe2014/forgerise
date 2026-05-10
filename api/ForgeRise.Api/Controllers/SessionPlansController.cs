@@ -232,6 +232,26 @@ public sealed class SessionPlansController : ControllerBase
         };
         _db.Sessions.Add(session);
 
+        // Prefill attendance from the readiness snapshot. The snapshot lists
+        // every player who had a recent check-in at generation time; default
+        // them to Present so the coach can mark exceptions instead of ticking
+        // the whole roster from scratch. Players without a snapshot row stay
+        // Absent (the AttendanceController default for missing records).
+        var snapshotRows = JsonSerializer.Deserialize<List<SessionPlanReadinessRow>>(
+            plan.ReadinessSnapshotJson, JsonOpts) ?? new List<SessionPlanReadinessRow>();
+        foreach (var row in snapshotRows)
+        {
+            _db.AttendanceRecords.Add(new AttendanceRecord
+            {
+                Id = Guid.NewGuid(),
+                SessionId = session.Id,
+                PlayerId = row.PlayerId,
+                Status = AttendanceStatus.Present,
+                RecordedByUserId = actor,
+                RecordedAt = now,
+            });
+        }
+
         plan.AdoptedAt = now;
         plan.AdoptedByUserId = actor;
         plan.AdoptedSessionId = session.Id;

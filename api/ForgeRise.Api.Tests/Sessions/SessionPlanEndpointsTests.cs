@@ -180,7 +180,6 @@ public class SessionPlanEndpointsTests : IClassFixture<ForgeRiseFactory>
         gen.EnsureSuccessStatusCode();
         var plan = (await gen.Content.ReadFromJsonAsync<SessionPlanDto>())!;
         Assert.Null(plan.AdoptedAt);
-
         var scheduled = DateTimeOffset.UtcNow.AddDays(2);
         var adopt = await client.PostAsJsonAsync(
             $"/teams/{teamId}/session-plans/{plan.Id}/adopt",
@@ -216,6 +215,45 @@ public class SessionPlanEndpointsTests : IClassFixture<ForgeRiseFactory>
                 type = (int)Data.Entities.SessionType.Training,
             });
         Assert.Equal(HttpStatusCode.BadRequest, again.StatusCode);
+    }
+
+    [Fact]
+    public async Task Adopt_prefills_attendance_for_snapshotted_players()
+    {
+        var (client, teamId, playerId) = await Seed("attp");
+
+        // Snapshotted player has a recent check-in...
+        await client.PostAsJsonAsync($"/teams/{teamId}/players/{playerId}/checkins", new
+        {
+            sleepHours = 8.0, sorenessScore = 1, moodScore = 5, stressScore = 1, fatigueScore = 1,
+        });
+        // ...and there's a second teammate without one, who should NOT be prefilled.
+        var p2 = await client.PostAsJsonAsync($"/teams/{teamId}/players", new { displayName = "Sam" });
+        var ghost = (await p2.Content.ReadFromJsonAsync<ForgeRise.Api.Teams.Contracts.PlayerDto>())!.Id;
+
+        var plan = (await (await client.PostAsJsonAsync(
+            $"/teams/{teamId}/session-plans/generate", new { focus = "Skills" }))
+            .Content.ReadFromJsonAsync<SessionPlanDto>())!;
+
+        var adopt = await client.PostAsJsonAsync(
+            $"/teams/{teamId}/session-plans/{plan.Id}/adopt",
+            new
+            {
+                scheduledAt = DateTimeOffset.UtcNow.AddDays(1),
+                durationMinutes = 75,
+                type = (int)Data.Entities.SessionType.Training,
+            });
+        adopt.EnsureSuccessStatusCode();
+        var adopted = (await adopt.Content.ReadFromJsonAsync<SessionPlanDto>())!;
+
+        var attendance = await client.GetFromJsonAsync<List<AttendanceRowDto>>(
+            $"/teams/{teamId}/sessions/{adopted.AdoptedSessionId}/attendance");
+        var prefilled = Assert.Single(attendance!, a => a.PlayerId == playerId);
+        Assert.Equal(AttendanceStatus.Present, prefilled.Status);
+        Assert.NotNull(prefilled.RecordedAt);
+        var notPrefilled = Assert.Single(attendance!, a => a.PlayerId == ghost);
+        Assert.Equal(AttendanceStatus.Absent, notPrefilled.Status);
+        Assert.Null(notPrefilled.RecordedAt);
     }
 
     [Fact]
