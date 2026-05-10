@@ -19,17 +19,29 @@ public sealed class ForgeRiseFactory : WebApplicationFactory<Program>
     public string DbName { get; } = $"forgerise-tests-{Guid.NewGuid():n}";
     public const string JwtKey = "test-jwt-key-must-be-at-least-32-chars-long-12345";
 
+    /// <summary>
+    /// Extra in-memory configuration applied at host build. Set by
+    /// <see cref="ForgeRiseFactoryExtensions"/> helpers BEFORE any client
+    /// is created.
+    /// </summary>
+    public Dictionary<string, string?> ExtraConfig { get; } = new();
+
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
-        builder.ConfigureHostConfiguration(c => c.AddInMemoryCollection(new Dictionary<string, string?>
+        builder.ConfigureHostConfiguration(c =>
         {
-            ["Jwt:Key"] = JwtKey,
-            ["Jwt:Issuer"] = "forgerise.tests",
-            ["Jwt:Audience"] = "forgerise.tests",
-            ["ConnectionStrings:Postgres"] = string.Empty,
-            ["Cors:AllowedOrigins"] = string.Empty,
-        }));
+            var baseSettings = new Dictionary<string, string?>
+            {
+                ["Jwt:Key"] = JwtKey,
+                ["Jwt:Issuer"] = "forgerise.tests",
+                ["Jwt:Audience"] = "forgerise.tests",
+                ["ConnectionStrings:Postgres"] = string.Empty,
+                ["Cors:AllowedOrigins"] = string.Empty,
+            };
+            c.AddInMemoryCollection(baseSettings);
+            if (ExtraConfig.Count > 0) c.AddInMemoryCollection(ExtraConfig);
+        });
         return base.CreateHost(builder);
     }
 

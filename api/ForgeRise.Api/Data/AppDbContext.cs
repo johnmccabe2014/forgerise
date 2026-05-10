@@ -1,4 +1,5 @@
 using ForgeRise.Api.Data.Entities;
+using ForgeRise.Api.Data.Entities.Video;
 using Microsoft.EntityFrameworkCore;
 
 namespace ForgeRise.Api.Data;
@@ -23,6 +24,18 @@ public sealed class AppDbContext : DbContext
     public DbSet<PlayerInvite> PlayerInvites => Set<PlayerInvite>();
     public DbSet<TeamActivitySeen> TeamActivitySeens => Set<TeamActivitySeen>();
     public DbSet<TeamDrillPreference> TeamDrillPreferences => Set<TeamDrillPreference>();
+
+    // --- Video Intelligence module (V1 skeleton) ---
+    public DbSet<VideoUploadSession> VideoUploadSessions => Set<VideoUploadSession>();
+    public DbSet<VideoAsset> VideoAssets => Set<VideoAsset>();
+    public DbSet<SessionVideoLink> SessionVideoLinks => Set<SessionVideoLink>();
+    public DbSet<VideoTimelineEvent> VideoTimelineEvents => Set<VideoTimelineEvent>();
+    public DbSet<VideoClip> VideoClips => Set<VideoClip>();
+    public DbSet<VideoTag> VideoTags => Set<VideoTag>();
+    public DbSet<CoachVoiceNote> CoachVoiceNotes => Set<CoachVoiceNote>();
+    public DbSet<TranscriptSegment> TranscriptSegments => Set<TranscriptSegment>();
+    public DbSet<AiVideoInsight> AiVideoInsights => Set<AiVideoInsight>();
+    public DbSet<HighlightCandidate> HighlightCandidates => Set<HighlightCandidate>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -214,6 +227,173 @@ public sealed class AppDbContext : DbContext
             e.Property(x => x.DrillId).HasMaxLength(64).IsRequired();
             e.Property(x => x.Status).HasConversion<int>();
             e.HasIndex(x => new { x.TeamId, x.DrillId }).IsUnique();
+        });
+
+        // --- Video Intelligence module (V1 skeleton) ---
+        // All entities are TeamId-scoped; (TeamId, ...) leading indexes
+        // match the convention used elsewhere in this file. Soft-delete
+        // (DeletedAt) entities also get a query filter so default reads are
+        // safe.
+        b.Entity<VideoUploadSession>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.OriginalFileName).HasMaxLength(260).IsRequired();
+            e.Property(x => x.DeclaredMimeType).HasMaxLength(120).IsRequired();
+            e.HasOne(x => x.Team)
+                .WithMany()
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.TeamId, x.CreatedAt });
+        });
+
+        b.Entity<VideoAsset>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.OriginalFileName).HasMaxLength(260).IsRequired();
+            e.Property(x => x.MimeType).HasMaxLength(120).IsRequired();
+            e.Property(x => x.StoragePath).HasMaxLength(1024).IsRequired();
+            e.Property(x => x.ThumbnailPath).HasMaxLength(1024);
+            e.Property(x => x.ProcessingError).HasMaxLength(2000);
+            e.Property(x => x.ProcessingState).HasConversion<string>().HasMaxLength(20);
+            e.HasOne(x => x.Team)
+                .WithMany()
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.TeamId, x.CreatedAt });
+            e.HasIndex(x => new { x.TeamId, x.ProcessingState });
+            e.HasQueryFilter(x => x.DeletedAt == null);
+        });
+
+        b.Entity<SessionVideoLink>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasOne(x => x.Team)
+                .WithMany()
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Session)
+                .WithMany()
+                .HasForeignKey(x => x.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.VideoAsset)
+                .WithMany()
+                .HasForeignKey(x => x.VideoAssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.TeamId, x.SessionId });
+            e.HasIndex(x => new { x.SessionId, x.VideoAssetId }).IsUnique();
+        });
+
+        b.Entity<VideoTimelineEvent>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Body).HasMaxLength(4000);
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
+            e.HasOne(x => x.Team)
+                .WithMany()
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.VideoAsset)
+                .WithMany()
+                .HasForeignKey(x => x.VideoAssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.TeamId, x.VideoAssetId, x.AtSeconds });
+            e.HasQueryFilter(x => x.DeletedAt == null);
+        });
+
+        b.Entity<VideoClip>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            e.Property(x => x.StoragePath).HasMaxLength(1024);
+            e.Property(x => x.ThumbnailPath).HasMaxLength(1024);
+            e.HasOne(x => x.Team)
+                .WithMany()
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.VideoAsset)
+                .WithMany()
+                .HasForeignKey(x => x.VideoAssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.TeamId, x.VideoAssetId, x.StartSeconds });
+            e.HasQueryFilter(x => x.DeletedAt == null);
+        });
+
+        b.Entity<VideoTag>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Color).HasMaxLength(16);
+            e.HasOne(x => x.Team)
+                .WithMany()
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.TeamId, x.Name }).IsUnique();
+            e.HasQueryFilter(x => x.DeletedAt == null);
+        });
+
+        b.Entity<CoachVoiceNote>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.StoragePath).HasMaxLength(1024).IsRequired();
+            e.Property(x => x.TranscriptText).HasMaxLength(8000);
+            e.HasOne(x => x.Team)
+                .WithMany()
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.VideoAsset)
+                .WithMany()
+                .HasForeignKey(x => x.VideoAssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.TeamId, x.VideoAssetId, x.AtSeconds });
+            e.HasQueryFilter(x => x.DeletedAt == null);
+        });
+
+        b.Entity<TranscriptSegment>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Text).HasMaxLength(2000).IsRequired();
+            e.HasOne(x => x.Team)
+                .WithMany()
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.VideoAsset)
+                .WithMany()
+                .HasForeignKey(x => x.VideoAssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.TeamId, x.VideoAssetId, x.StartSeconds });
+        });
+
+        b.Entity<AiVideoInsight>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Kind).HasMaxLength(40).IsRequired();
+            e.Property(x => x.Model).HasMaxLength(120).IsRequired();
+            // jsonb on Postgres; on InMemory the column type hint is ignored.
+            e.Property(x => x.Body).HasColumnType("jsonb");
+            e.HasOne(x => x.Team)
+                .WithMany()
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.VideoAsset)
+                .WithMany()
+                .HasForeignKey(x => x.VideoAssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.TeamId, x.VideoAssetId, x.Kind });
+        });
+
+        b.Entity<HighlightCandidate>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+            e.HasOne(x => x.Team)
+                .WithMany()
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.VideoAsset)
+                .WithMany()
+                .HasForeignKey(x => x.VideoAssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.TeamId, x.VideoAssetId, x.Score });
         });
     }
 }

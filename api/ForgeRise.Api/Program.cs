@@ -2,6 +2,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using ForgeRise.Api.Auth;
 using ForgeRise.Api.Data;
+using ForgeRise.Api.Features.Video.Options;
 using ForgeRise.Api.Observability;
 using ForgeRise.Api.Welfare;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -64,6 +65,10 @@ builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ILoginLockout, LoginLockout>();
 builder.Services.AddSingleton<ForgeRise.Api.Sessions.ISessionPlanGenerator, ForgeRise.Api.Sessions.HeuristicSessionPlanGenerator>();
+
+// --- Feature flags ---
+builder.Services.Configure<VideoFeatureOptions>(
+    builder.Configuration.GetSection(VideoFeatureOptions.SectionName));
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
