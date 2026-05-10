@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { ReadinessBadge } from "@/components/ReadinessBadge";
+import { ReadinessTrend } from "@/components/ReadinessTrend";
 import { SelfSubmittedPill } from "@/components/SelfSubmittedPill";
 import {
   PlayerInvitePanel,
@@ -271,6 +272,7 @@ export default async function PlayerProfilePage({
             Coach-safe summaries only. Raw scores and notes are gated behind a
             separate audited view.
           </p>
+          <ReadinessTrend checkins={checkins} />
           {checkins.length === 0 ? (
             <p className="text-sm text-slate">No check-ins recorded yet.</p>
           ) : (
