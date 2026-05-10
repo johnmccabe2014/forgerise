@@ -118,6 +118,47 @@ public class DrillPreferencesTests : IClassFixture<ForgeRiseFactory>
         Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
     }
 
+    private sealed record ImportError(int Line, string Reason);
+    private sealed record ImportResult(int Applied, int Cleared, int Skipped, List<ImportError> Errors);
+
+    [Fact]
+    public async Task Import_applies_clears_and_reports_errors()
+    {
+        var (client, teamId) = await Seed("dp-csv");
+
+        // Pre-existing favourite that the CSV will then clear.
+        (await client.PutAsJsonAsync(
+            $"/teams/{teamId}/drill-preferences/mobility-flow", new { status = "favourite" }))
+            .EnsureSuccessStatusCode();
+
+        var csv = string.Join("\n", new[]
+        {
+            "drillId,status",
+            "conditioned-game,exclude",
+            "walk-throughs,favourite",
+            "mobility-flow,clear",
+            "no-such-drill,favourite",
+            "walk-throughs,sometimes",
+            "",
+        });
+
+        var resp = await client.PostAsJsonAsync(
+            $"/teams/{teamId}/drill-preferences/import", new { csv });
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var summary = await resp.Content.ReadFromJsonAsync<ImportResult>();
+        Assert.Equal(2, summary!.Applied);
+        Assert.Equal(1, summary.Cleared);
+        Assert.Equal(2, summary.Errors.Count);
+        Assert.Contains(summary.Errors, e => e.Reason.Contains("unknown drill"));
+        Assert.Contains(summary.Errors, e => e.Reason.Contains("favourite, exclude, or clear"));
+
+        var rows = await client.GetFromJsonAsync<List<DrillCataloguePrefRow>>(
+            $"/teams/{teamId}/drill-preferences");
+        Assert.Equal("exclude", rows!.Single(r => r.DrillId == "conditioned-game").Status);
+        Assert.Equal("favourite", rows.Single(r => r.DrillId == "walk-throughs").Status);
+        Assert.Null(rows.Single(r => r.DrillId == "mobility-flow").Status);
+    }
+
     [Fact]
     public async Task Endpoints_are_team_scoped()
     {

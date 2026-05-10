@@ -27,6 +27,16 @@ public sealed record DrillCataloguePrefDto(
 
 public sealed record SetDrillPreferenceRequest(string Status);
 
+public sealed record DrillPreferenceImportRequest(string Csv);
+
+public sealed record DrillPreferenceImportError(int Line, string Reason);
+
+public sealed record DrillPreferenceImportResult(
+    int Applied,
+    int Cleared,
+    int Skipped,
+    IReadOnlyList<DrillPreferenceImportError> Errors);
+
 [ApiController]
 [Authorize]
 [Route("teams/{teamId:guid}/drill-preferences")]
@@ -138,5 +148,123 @@ public sealed class DrillPreferencesController : ControllerBase
         _db.TeamDrillPreferences.Remove(row);
         await _db.SaveChangesAsync(ct);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Bulk-set or clear preferences from a CSV body. Each non-empty line
+    /// is "drillId,status" where status is favourite | exclude | clear. A
+    /// header row ("drillId,status") is tolerated. Unknown drill ids and
+    /// malformed rows are reported back rather than aborting the whole
+    /// import — the goal is "apply what you can, tell me what failed".
+    /// </summary>
+    [HttpPost("import")]
+    public async Task<IActionResult> Import(
+        Guid teamId,
+        [FromBody] DrillPreferenceImportRequest request,
+        CancellationToken ct)
+    {
+        var (_, err) = await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
+        if (err is not null) return err;
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Csv))
+        {
+            return ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]>
+            {
+                ["csv"] = new[] { "csv body is required" },
+            }));
+        }
+
+        var validIds = DrillCatalogue.All.Select(d => d.Id).ToHashSet(StringComparer.Ordinal);
+        var existing = await _db.TeamDrillPreferences
+            .Where(p => p.TeamId == teamId)
+            .ToDictionaryAsync(p => p.DrillId, ct);
+        var now = _time.GetUtcNow();
+        var actor = User.TryGetUserId();
+        var errors = new List<DrillPreferenceImportError>();
+        var applied = 0;
+        var cleared = 0;
+        var skipped = 0;
+
+        var lines = request.Csv.Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var raw = lines[i].Trim().TrimEnd('\r');
+            if (raw.Length == 0) { skipped++; continue; }
+
+            var parts = raw.Split(',');
+            if (parts.Length < 2)
+            {
+                errors.Add(new DrillPreferenceImportError(i + 1, "expected drillId,status"));
+                continue;
+            }
+            var drillId = parts[0].Trim();
+            var statusText = parts[1].Trim().ToLowerInvariant();
+
+            // Tolerate a header row.
+            if (i == 0 && string.Equals(drillId, "drillId", StringComparison.OrdinalIgnoreCase))
+            {
+                skipped++;
+                continue;
+            }
+
+            if (!validIds.Contains(drillId))
+            {
+                errors.Add(new DrillPreferenceImportError(i + 1, $"unknown drill '{drillId}'"));
+                continue;
+            }
+
+            if (statusText == "clear")
+            {
+                if (existing.TryGetValue(drillId, out var existingRow))
+                {
+                    _db.TeamDrillPreferences.Remove(existingRow);
+                    existing.Remove(drillId);
+                    cleared++;
+                }
+                else
+                {
+                    skipped++;
+                }
+                continue;
+            }
+
+            var parsed = statusText switch
+            {
+                "favourite" => DrillPreferenceStatus.Favourite,
+                "exclude" => DrillPreferenceStatus.Exclude,
+                _ => (DrillPreferenceStatus)(-1),
+            };
+            if ((int)parsed < 0)
+            {
+                errors.Add(new DrillPreferenceImportError(
+                    i + 1, $"status must be favourite, exclude, or clear (got '{statusText}')"));
+                continue;
+            }
+
+            if (existing.TryGetValue(drillId, out var row))
+            {
+                row.Status = parsed;
+                row.UpdatedAt = now;
+                row.LastChangedByUserId = actor;
+            }
+            else
+            {
+                var added = new TeamDrillPreference
+                {
+                    TeamId = teamId,
+                    DrillId = drillId,
+                    Status = parsed,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                    LastChangedByUserId = actor,
+                };
+                _db.TeamDrillPreferences.Add(added);
+                existing[drillId] = added;
+            }
+            applied++;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(new DrillPreferenceImportResult(applied, cleared, skipped, errors));
     }
 }

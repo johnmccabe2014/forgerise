@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { DrillPreferenceToggle } from "@/components/DrillPreferenceToggle";
+import { DrillPrefsImport } from "@/components/DrillPrefsImport";
 
 interface DrillCataloguePrefDto {
   drillId: string;
@@ -76,6 +77,8 @@ export default async function DrillPreferencesPage({
             {excludeCount} excluded
           </p>
         </div>
+
+        <DrillPrefsImport teamId={teamId} />
 
         <ul className="space-y-2">
           {drills.map((d) => (
