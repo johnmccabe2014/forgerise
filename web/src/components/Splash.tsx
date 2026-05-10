@@ -5,43 +5,59 @@ import { useEffect, useState } from "react";
 
 const HOLD_MS = 1200;
 const FADE_MS = 400;
+const STORAGE_KEY = "forgerise.splashShown";
+
+type Phase = "hidden" | "visible" | "fading";
 
 export default function Splash() {
-  const [phase, setPhase] = useState<"visible" | "fading" | "gone">(() => {
-    if (typeof window === "undefined") return "visible";
-    try {
-      if (window.sessionStorage.getItem("forgerise.splashShown") === "1") {
-        return "gone";
-      }
-      window.sessionStorage.setItem("forgerise.splashShown", "1");
-    } catch {
-      // sessionStorage may be unavailable; fall through to show splash.
-    }
-    return "visible";
-  });
+  // Always start hidden so SSR markup matches the first client render and
+  // we never get a stuck server-rendered overlay if the client effect bails.
+  const [phase, setPhase] = useState<Phase>("hidden");
 
   useEffect(() => {
-    if (phase !== "visible") return;
+    let alreadyShown = false;
+    try {
+      alreadyShown = window.sessionStorage.getItem(STORAGE_KEY) === "1";
+      if (!alreadyShown) {
+        window.sessionStorage.setItem(STORAGE_KEY, "1");
+      }
+    } catch {
+      // sessionStorage may be unavailable; treat as first visit.
+    }
+    if (alreadyShown) return;
+
+    const showTimer = window.setTimeout(() => setPhase("visible"), 0);
     const fadeTimer = window.setTimeout(() => setPhase("fading"), HOLD_MS);
-    const goneTimer = window.setTimeout(() => setPhase("gone"), HOLD_MS + FADE_MS);
+    const goneTimer = window.setTimeout(() => setPhase("hidden"), HOLD_MS + FADE_MS);
     return () => {
+      window.clearTimeout(showTimer);
       window.clearTimeout(fadeTimer);
       window.clearTimeout(goneTimer);
     };
-  }, [phase]);
+  }, []);
 
-  if (phase === "gone") return null;
+  if (phase === "hidden") return null;
 
   return (
     <div
       data-testid="splash"
       aria-hidden="true"
-      className={`fixed inset-0 z-[9999] flex items-center justify-center bg-deep-charcoal transition-opacity duration-[400ms] ${
-        phase === "fading" ? "opacity-0" : "opacity-100"
-      }`}
+      onClick={() => setPhase("hidden")}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#1F2933",
+        opacity: phase === "fading" ? 0 : 1,
+        transition: `opacity ${FADE_MS}ms ease-out`,
+        pointerEvents: phase === "fading" ? "none" : "auto",
+      }}
     >
       <div className="flex flex-col items-center gap-4">
-        <div className="h-24 w-24 overflow-hidden rounded-2xl bg-deep-charcoal shadow-soft animate-pulse">
+        <div className="h-24 w-24 overflow-hidden rounded-2xl bg-deep-charcoal shadow-soft">
           <Image
             src="/brand/crest-icon.png"
             alt="ForgeRise"

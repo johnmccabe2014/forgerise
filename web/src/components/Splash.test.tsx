@@ -1,5 +1,5 @@
 import { render, screen, act } from "@testing-library/react";
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Splash from "./Splash";
 
 describe("Splash", () => {
@@ -8,21 +8,40 @@ describe("Splash", () => {
     vi.useFakeTimers();
   });
 
-  it("shows on first load and disappears after the hold + fade window", () => {
-    render(<Splash />);
-    expect(screen.getByTestId("splash")).toBeInTheDocument();
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
+  it("appears after mount and disappears after hold + fade", () => {
+    render(<Splash />);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(screen.getByTestId("splash")).toBeInTheDocument();
     act(() => {
       vi.advanceTimersByTime(1200 + 400 + 10);
     });
     expect(screen.queryByTestId("splash")).not.toBeInTheDocument();
-    vi.useRealTimers();
   });
 
-  it("does not render again within the same session", () => {
+  it("does not render when the session flag is already set", () => {
     window.sessionStorage.setItem("forgerise.splashShown", "1");
     render(<Splash />);
+    act(() => {
+      vi.advanceTimersByTime(10);
+    });
     expect(screen.queryByTestId("splash")).not.toBeInTheDocument();
-    vi.useRealTimers();
+  });
+
+  it("dismisses immediately on click", () => {
+    render(<Splash />);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    const overlay = screen.getByTestId("splash");
+    act(() => {
+      overlay.click();
+    });
+    expect(screen.queryByTestId("splash")).not.toBeInTheDocument();
   });
 });
