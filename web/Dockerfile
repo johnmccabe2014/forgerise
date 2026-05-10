@@ -34,8 +34,9 @@ RUN addgroup -S -g 10001 nextjs \
  && adduser  -S -u 10001 -G nextjs nextjs
 
 # Standalone output bundles only the runtime files Next needs.
-COPY --from=builder --chown=nextjs:nextjs /repo/web/public            ./public
+# server.js lives at /app/web/server.js, so public must sit beside it at /app/web/public.
 COPY --from=builder --chown=nextjs:nextjs /repo/web/.next/standalone  ./
+COPY --from=builder --chown=nextjs:nextjs /repo/web/public            ./web/public
 COPY --from=builder --chown=nextjs:nextjs /repo/web/.next/static      ./web/.next/static
 
 USER nextjs
