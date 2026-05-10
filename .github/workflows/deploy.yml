@@ -193,15 +193,27 @@ jobs:
           # Up to ~2 minutes total: traefik can take a while to fully
           # cut over after pod readiness, especially when the API has
           # just rolled and is still warming up.
+          #
+          # IMPORTANT: probe and reporting must happen in the same
+          # request — earlier versions did one probe loop and then a
+          # second `curl` outside the loop to print the status, which
+          # raced against the cutover and would 502 even after the
+          # loop got a healthy 200. We now print on success from
+          # inside the loop and only fail once all attempts fail.
           smoke() {
             local label="$1" url="$2"
             local code
             for attempt in $(seq 1 24); do
-              code=$(curl -fsS --max-time 10 -o /dev/null -w "%{http_code}" "$url" 2>/dev/null) && break || true
-              echo "  attempt $attempt: $url -> ${code:-curl-error}, retrying..."
+              code=$(curl -sS --max-time 10 -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || echo "curl-error")
+              if [ "$code" = "200" ]; then
+                printf "%s  %s\n" "$label" "$code"
+                return 0
+              fi
+              echo "  attempt $attempt: $url -> $code, retrying..."
               sleep 5
             done
-            curl -fsS --max-time 10 -o /dev/null -w "${label}  %{http_code}\n" "$url"
+            echo "::error::smoke check failed for $url after 24 attempts (last: $code)"
+            return 1
           }
 
           echo "::group::GET https://${HOST}/"
