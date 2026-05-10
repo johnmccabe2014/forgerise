@@ -167,6 +167,40 @@ public class WelfareEndpointsTests : IClassFixture<ForgeRiseFactory>
     }
 
     [Fact]
+    public async Task Audit_log_exports_filtered_csv()
+    {
+        var (client, teamId, playerId) = await SeedTeamAndPlayer("csv");
+        var create = await client.PostAsJsonAsync($"/teams/{teamId}/players/{playerId}/checkins", new
+        {
+            sleepHours = 7.0, sorenessScore = 2, moodScore = 4, stressScore = 2, fatigueScore = 2,
+        });
+        var summary = await create.Content.ReadFromJsonAsync<CheckInSummaryDto>();
+        (await client.GetAsync($"/teams/{teamId}/players/{playerId}/checkins/{summary!.Id}/raw"))
+            .EnsureSuccessStatusCode();
+
+        var resp = await client.GetAsync(
+            $"/teams/{teamId}/welfare-audit/export.csv?action=ReadRawCheckIn");
+        resp.EnsureSuccessStatusCode();
+        Assert.StartsWith("text/csv", resp.Content.Headers.ContentType?.MediaType is null
+            ? resp.Content.Headers.ContentType?.ToString() ?? ""
+            : resp.Content.Headers.ContentType.ToString(), StringComparison.OrdinalIgnoreCase);
+        var disposition = resp.Content.Headers.ContentDisposition?.FileNameStar
+            ?? resp.Content.Headers.ContentDisposition?.FileName;
+        Assert.NotNull(disposition);
+        Assert.Contains("welfare-audit-", disposition!);
+
+        var body = await resp.Content.ReadAsStringAsync();
+        var lines = body.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal("at,action,actor,player,actorUserId,playerId", lines[0]);
+        Assert.True(lines.Length >= 2, "expected at least one data row");
+        Assert.Contains("ReadRawCheckIn", lines[1]);
+
+        var bogus = await client.GetAsync(
+            $"/teams/{teamId}/welfare-audit/export.csv?action=NotARealAction");
+        Assert.Equal(HttpStatusCode.BadRequest, bogus.StatusCode);
+    }
+
+    [Fact]
     public async Task Purge_raw_clears_fields_keeps_category()
     {
         var (client, teamId, playerId) = await SeedTeamAndPlayer("dan");

@@ -218,6 +218,15 @@ export default async function WelfareAuditPage({
                 Clear
               </Link>
             )}
+            <a
+              data-testid="welfare-audit-export"
+              href={`/api/proxy/teams/${teamId}/welfare-audit/export.csv${
+                filterParams.toString() ? `?${filterParams.toString()}` : ""
+              }`}
+              className="text-xs text-forge-navy underline hover:text-rise-copper"
+            >
+              Export CSV
+            </a>
             <span className="ml-auto text-xs text-slate">
               showing {rows.length === 0 ? 0 : skip + 1}–{skip + rows.length}
             </span>
