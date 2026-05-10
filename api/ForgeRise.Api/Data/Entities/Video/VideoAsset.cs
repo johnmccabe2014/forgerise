@@ -23,6 +23,13 @@ public sealed class VideoAsset
     public required string StoragePath { get; set; }
     public string? ThumbnailPath { get; set; }
 
+    /// <summary>
+    /// Lower-case hex SHA-256 of the stored bytes. Computed once during
+    /// upload (security review v2 iter1, finding F6) so V3's AV scanner
+    /// can dedup work and we have a forensic anchor today.
+    /// </summary>
+    public string? ContentSha256 { get; set; }
+
     public VideoProcessingState ProcessingState { get; set; } = VideoProcessingState.Queued;
     public string? ProcessingError { get; set; }
 

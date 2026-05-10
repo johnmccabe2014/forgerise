@@ -3,6 +3,8 @@ using System.Threading.RateLimiting;
 using ForgeRise.Api.Auth;
 using ForgeRise.Api.Data;
 using ForgeRise.Api.Features.Video.Options;
+using ForgeRise.Api.Features.Video.Services;
+using ForgeRise.Api.Features.Video.Storage;
 using ForgeRise.Api.Observability;
 using ForgeRise.Api.Welfare;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -69,6 +71,41 @@ builder.Services.AddSingleton<ForgeRise.Api.Sessions.ISessionPlanGenerator, Forg
 // --- Feature flags ---
 builder.Services.Configure<VideoFeatureOptions>(
     builder.Configuration.GetSection(VideoFeatureOptions.SectionName));
+builder.Services.Configure<VideoSigningOptions>(
+    builder.Configuration.GetSection(VideoSigningOptions.SectionName));
+builder.Services.Configure<VideoStorageOptions>(
+    builder.Configuration.GetSection(VideoStorageOptions.SectionName));
+
+// Validate Video options eagerly when the module is enabled, so a
+// misconfigured prod refuses to start instead of failing per-request.
+{
+    var videoSection = builder.Configuration.GetSection(VideoFeatureOptions.SectionName);
+    if (videoSection.GetValue<bool>("Enabled"))
+    {
+        var secret = videoSection.GetValue<string>("SigningSecret") ?? string.Empty;
+        if (Encoding.UTF8.GetByteCount(secret) < 32)
+        {
+            throw new InvalidOperationException(
+                "Features:Video:SigningSecret must be >= 32 bytes when Features:Video:Enabled=true.");
+        }
+        if (builder.Environment.IsProduction() &&
+            VideoSigningOptions.ProductionDenyList.Contains(secret))
+        {
+            throw new InvalidOperationException(
+                "Features:Video:SigningSecret matches a forbidden default; rotate it.");
+        }
+        var root = videoSection.GetValue<string>("Root") ?? string.Empty;
+        if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
+        {
+            throw new InvalidOperationException(
+                "Features:Video:Root must be set and exist when the module is enabled.");
+        }
+    }
+}
+
+builder.Services.AddSingleton<LocalFsObjectStore>();
+builder.Services.AddSingleton<IObjectStore>(sp => sp.GetRequiredService<LocalFsObjectStore>());
+builder.Services.AddScoped<IUploadService, UploadService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -136,6 +173,15 @@ builder.Services.AddRateLimiter(opts =>
             TokensPerPeriod = 30,
             QueueLimit = 0,
             AutoReplenishment = true,
+        }));
+
+    opts.AddPolicy("video-upload", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(5),
+            QueueLimit = 0,
         }));
 });
 

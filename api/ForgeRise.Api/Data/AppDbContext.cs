@@ -253,6 +253,7 @@ public sealed class AppDbContext : DbContext
             e.Property(x => x.MimeType).HasMaxLength(120).IsRequired();
             e.Property(x => x.StoragePath).HasMaxLength(1024).IsRequired();
             e.Property(x => x.ThumbnailPath).HasMaxLength(1024);
+            e.Property(x => x.ContentSha256).HasMaxLength(64);
             e.Property(x => x.ProcessingError).HasMaxLength(2000);
             e.Property(x => x.ProcessingState).HasConversion<string>().HasMaxLength(20);
             e.HasOne(x => x.Team)

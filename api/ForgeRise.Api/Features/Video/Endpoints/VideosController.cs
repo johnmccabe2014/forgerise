@@ -39,10 +39,8 @@ public sealed class VideosController : ControllerBase
         var (_, err) = await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
         if (err is not null) return err;
 
-        // V1 returns an empty page even when assets exist. The list query
-        // is wired so the cross-team isolation test is meaningful: callers
-        // for team A can only see team A's assets (currently 0). V2 will
-        // project real fields.
+        // V2 returns real rows for the calling team; cross-team isolation
+        // remains enforced by the WHERE clause and TeamScope above.
         var items = await _db.VideoAssets
             .Where(a => a.TeamId == teamId && a.DeletedAt == null)
             .OrderByDescending(a => a.CreatedAt)
@@ -51,9 +49,8 @@ public sealed class VideosController : ControllerBase
                 a.OriginalFileName,
                 a.ProcessingState.ToString(),
                 a.CreatedAt))
-            .Take(0)
             .ToListAsync(ct);
 
-        return Ok(new VideoListResponse(items, 0));
+        return Ok(new VideoListResponse(items, items.Count));
     }
 }

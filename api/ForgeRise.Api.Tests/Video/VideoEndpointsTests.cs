@@ -99,23 +99,24 @@ public class VideoEndpointsTests
             await db.SaveChangesAsync();
         }
 
-        // Team B's listing must be empty (V1 returns empty regardless, but
-        // this asserts the WHERE TeamId == teamId filter is in place).
+        // Team B's listing must be empty.
         var bResp = await clientB.GetAsync($"/v1/teams/{teamBId}/videos");
         Assert.Equal(HttpStatusCode.OK, bResp.StatusCode);
         var b = await bResp.Content.ReadFromJsonAsync<VideoListResponseShape>();
         Assert.Empty(b!.Items);
 
-        // Team A also sees an empty page in V1 (Take(0)) but the row is in
-        // the DB — proves the seed worked and only the projection is empty.
+        // V2: team A now actually sees its own asset (no Take(0)).
+        var aResp = await clientA.GetAsync($"/v1/teams/{teamAId}/videos");
+        var a = await aResp.Content.ReadFromJsonAsync<VideoListResponseShape>();
+        Assert.Single(a!.Items);
+        Assert.Equal("match.mp4", a.Items[0].OriginalFileName);
+
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             Assert.Equal(1, db.VideoAssets.Count(a => a.TeamId == teamAId));
             Assert.Equal(0, db.VideoAssets.Count(a => a.TeamId == teamBId));
         }
-
-        _ = clientA;
     }
 
     [Fact]
