@@ -138,6 +138,35 @@ public class WelfareEndpointsTests : IClassFixture<ForgeRiseFactory>
     }
 
     [Fact]
+    public async Task Audit_log_paginates_with_skip_and_take()
+    {
+        var (client, teamId, playerId) = await SeedTeamAndPlayer("page");
+        // Generate 5 raw-read audit events (one create + repeated raw reads).
+        var create = await client.PostAsJsonAsync($"/teams/{teamId}/players/{playerId}/checkins", new
+        {
+            sleepHours = 7.0, sorenessScore = 2, moodScore = 4, stressScore = 2, fatigueScore = 2,
+        });
+        var summary = await create.Content.ReadFromJsonAsync<CheckInSummaryDto>();
+        for (var i = 0; i < 5; i++)
+        {
+            (await client.GetAsync($"/teams/{teamId}/players/{playerId}/checkins/{summary!.Id}/raw"))
+                .EnsureSuccessStatusCode();
+        }
+
+        var first = await client.GetFromJsonAsync<List<AuditEntryDto>>(
+            $"/teams/{teamId}/welfare-audit?take=2");
+        Assert.Equal(2, first!.Count);
+
+        var second = await client.GetFromJsonAsync<List<AuditEntryDto>>(
+            $"/teams/{teamId}/welfare-audit?skip=2&take=2");
+        Assert.Equal(2, second!.Count);
+        Assert.DoesNotContain(second, s => first.Any(f => f.Id == s.Id));
+
+        var bad = await client.GetAsync($"/teams/{teamId}/welfare-audit?take=500");
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+    }
+
+    [Fact]
     public async Task Purge_raw_clears_fields_keeps_category()
     {
         var (client, teamId, playerId) = await SeedTeamAndPlayer("dan");

@@ -75,13 +75,26 @@ export default async function WelfareAuditPage({
   const playerId = pickString(sp.playerId) ?? "";
   const from = pickString(sp.from) ?? "";
   const to = pickString(sp.to) ?? "";
+  const PAGE_SIZE = 50;
+  const skipParam = Number.parseInt(pickString(sp.skip) ?? "0", 10);
+  const skip = Number.isFinite(skipParam) && skipParam > 0 ? skipParam : 0;
 
   const qs = new URLSearchParams();
   if (action) qs.set("action", action);
   if (playerId) qs.set("playerId", playerId);
   if (from) qs.set("from", new Date(from).toISOString());
   if (to) qs.set("to", new Date(to).toISOString());
+  qs.set("skip", String(skip));
+  qs.set("take", String(PAGE_SIZE));
   const query = qs.toString();
+
+  // Filter-only querystring used for Prev/Next links so we don't carry the
+  // current page's skip into the new offset.
+  const filterParams = new URLSearchParams();
+  if (action) filterParams.set("action", action);
+  if (playerId) filterParams.set("playerId", playerId);
+  if (from) filterParams.set("from", from);
+  if (to) filterParams.set("to", to);
 
   const [auditRes, playersRes] = await Promise.all([
     serverFetchApi<AuditEntryDto[]>(
@@ -94,6 +107,17 @@ export default async function WelfareAuditPage({
   const players =
     playersRes.ok && Array.isArray(playersRes.data) ? playersRes.data : [];
   const hasFilters = Boolean(action || playerId || from || to);
+  const hasMore = rows.length === PAGE_SIZE;
+  const hasPrev = skip > 0;
+  const prevSkip = Math.max(0, skip - PAGE_SIZE);
+  const nextSkip = skip + PAGE_SIZE;
+
+  function pageHref(nextSkipValue: number): string {
+    const p = new URLSearchParams(filterParams);
+    if (nextSkipValue > 0) p.set("skip", String(nextSkipValue));
+    const qs = p.toString();
+    return `/teams/${teamId}/welfare/audit${qs ? `?${qs}` : ""}`;
+  }
 
   return (
     <main className="min-h-screen bg-mist-grey">
@@ -116,8 +140,9 @@ export default async function WelfareAuditPage({
           </h1>
           <p className="mt-2 text-slate">
             Append-only record of every access to raw welfare data on this
-            team, plus self-submissions and acknowledgements. Most recent 500
-            events shown, newest first.
+            team, plus self-submissions and acknowledgements. Newest first,
+            {" "}
+            {PAGE_SIZE} per page.
           </p>
         </div>
 
@@ -194,7 +219,7 @@ export default async function WelfareAuditPage({
               </Link>
             )}
             <span className="ml-auto text-xs text-slate">
-              {rows.length} match{rows.length === 1 ? "" : "es"}
+              showing {rows.length === 0 ? 0 : skip + 1}–{skip + rows.length}
             </span>
           </div>
         </form>
@@ -241,6 +266,37 @@ export default async function WelfareAuditPage({
               </tbody>
             </table>
           </div>
+        )}
+
+        {(hasPrev || hasMore) && (
+          <nav
+            data-testid="welfare-audit-pager"
+            className="flex items-center justify-between text-sm"
+            aria-label="Audit log pagination"
+          >
+            {hasPrev ? (
+              <Link
+                data-testid="welfare-audit-prev"
+                href={pageHref(prevSkip)}
+                className="rounded-pill bg-white px-4 py-1.5 text-forge-navy shadow-soft hover:bg-mist-grey"
+              >
+                ← Newer
+              </Link>
+            ) : (
+              <span />
+            )}
+            {hasMore ? (
+              <Link
+                data-testid="welfare-audit-next"
+                href={pageHref(nextSkip)}
+                className="rounded-pill bg-white px-4 py-1.5 text-forge-navy shadow-soft hover:bg-mist-grey"
+              >
+                Older →
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
         )}
       </section>
     </main>

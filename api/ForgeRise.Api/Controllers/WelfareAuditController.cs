@@ -23,6 +23,8 @@ public sealed class WelfareAuditController : ControllerBase
         [FromQuery] Guid? playerId,
         [FromQuery] DateTimeOffset? from,
         [FromQuery] DateTimeOffset? to,
+        [FromQuery] int? skip,
+        [FromQuery] int? take,
         CancellationToken ct)
     {
         var (_, err) = await TeamScope.RequireOwnedTeam(this, _db, teamId, ct);
@@ -41,6 +43,19 @@ public sealed class WelfareAuditController : ControllerBase
             actionFilter = parsed;
         }
 
+        // Page-window defaults: 50 rows starting at offset 0, capped at 100 to
+        // keep the audit page snappy. The page detects "has more" by checking
+        // whether it received a full window.
+        var skipValue = skip ?? 0;
+        var takeValue = take ?? 50;
+        if (skipValue < 0 || takeValue < 1 || takeValue > 100)
+        {
+            return ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]>
+            {
+                ["paging"] = new[] { "skip must be >= 0 and take must be 1..100" },
+            }));
+        }
+
         var query = _db.WelfareAuditLogs
             .Where(a => _db.Players.Any(p => p.Id == a.PlayerId && p.TeamId == teamId));
         if (actionFilter is { } act) query = query.Where(a => a.Action == act);
@@ -50,7 +65,8 @@ public sealed class WelfareAuditController : ControllerBase
 
         var rows = await query
             .OrderByDescending(a => a.At)
-            .Take(500)
+            .Skip(skipValue)
+            .Take(takeValue)
             .ToListAsync(ct);
 
         // Resolve actor + player display names in two single round-trips so
