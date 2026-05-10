@@ -12,11 +12,11 @@ interface BrandMarkProps {
 }
 
 /**
- * Shield + "ForgeRise" lockup used in page headers. The shield art has a baked-in
- * dark grungy backdrop, so we present it inside a deep-charcoal rounded chip — that
- * way the imagery sits comfortably against the otherwise white/mist-grey nav bar
- * without us having to alpha-mask the source PNG. The wordmark stays as live text
- * (font-heading, forge-navy) so it scales crisply and stays accessible.
+ * Shield + "ForgeRise" lockup used in page headers. The crest art is now a
+ * transparent PNG so it sits cleanly on either light or dark backgrounds —
+ * no chip wrapper needed. The wordmark stays as live text so it scales
+ * crisply and adapts to the active theme via text-forge-navy (which the
+ * dark-mode override in globals.css flips to a light tint).
  */
 export function BrandMark({
   href = "/dashboard",
@@ -29,20 +29,15 @@ export function BrandMark({
       data-testid="brand-mark"
       className={`inline-flex items-center gap-2 ${className}`}
     >
-      <span
-        className="inline-flex items-center justify-center rounded-md bg-deep-charcoal shadow-soft overflow-hidden"
+      <Image
+        src="/brand/crest-icon.png"
+        alt=""
+        width={size}
+        height={size}
+        priority
         style={{ width: size, height: size }}
-        aria-hidden="true"
-      >
-        <Image
-          src="/brand/crest-icon.png"
-          alt=""
-          width={size}
-          height={size}
-          priority
-          className="h-full w-full object-cover"
-        />
-      </span>
+        className="object-contain"
+      />
       {showWordmark && (
         <span className="font-heading text-forge-navy tracking-wide">
           ForgeRise

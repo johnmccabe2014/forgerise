@@ -57,16 +57,14 @@ export default function Splash() {
       }}
     >
       <div className="flex flex-col items-center gap-4">
-        <div className="h-24 w-24 overflow-hidden rounded-2xl bg-deep-charcoal shadow-soft">
-          <Image
-            src="/brand/crest-icon.png"
-            alt="ForgeRise"
-            width={96}
-            height={96}
-            priority
-            className="h-24 w-24 object-cover"
-          />
-        </div>
+        <Image
+          src="/brand/crest-icon.png"
+          alt="ForgeRise"
+          width={120}
+          height={120}
+          priority
+          className="h-28 w-28 object-contain"
+        />
         <span className="font-heading text-2xl tracking-wide text-white">ForgeRise</span>
       </div>
     </div>

@@ -22,7 +22,7 @@ export default function Home() {
               width={32}
               height={32}
               priority
-              className="h-8 w-8 rounded-md object-cover"
+              className="h-8 w-8 object-contain"
             />
             <span className="font-heading tracking-wide">ForgeRise</span>
           </span>
