@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { LogoutButton } from "@/components/LogoutButton";
 import { JoinTeamForm } from "@/components/JoinTeamForm";
+import { BrandMark } from "@/components/BrandMark";
 
 export const metadata = { title: "Dashboard — ForgeRise" };
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export default async function DashboardPage() {
     <main className="min-h-screen bg-mist-grey">
       <header className="bg-white border-b border-slate/10">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center justify-between">
-          <p className="font-heading text-forge-navy">ForgeRise</p>
+          <BrandMark />
           <div className="flex items-center gap-4">
             <Link href="/me" className="text-sm text-slate underline">
               My profile

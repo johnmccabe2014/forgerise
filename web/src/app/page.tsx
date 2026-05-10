@@ -3,6 +3,7 @@
 // coach already uses on the touchline (forwards, backs, sessions, welfare).
 
 import Link from "next/link";
+import Image from "next/image";
 import { ReadinessBadge } from "@/components/ReadinessBadge";
 
 export const metadata = {
@@ -14,7 +15,17 @@ export default function Home() {
     <main className="min-h-screen bg-mist-grey text-deep-charcoal">
       <header className="bg-forge-navy text-white">
         <div className="mx-auto max-w-5xl px-6 py-4 flex items-center justify-between">
-          <p className="font-heading tracking-wide">ForgeRise</p>
+          <span className="inline-flex items-center gap-2">
+            <Image
+              src="/brand/crest-icon.png"
+              alt=""
+              width={32}
+              height={32}
+              priority
+              className="h-8 w-8 rounded-md object-cover"
+            />
+            <span className="font-heading tracking-wide">ForgeRise</span>
+          </span>
           <nav aria-label="primary" className="flex items-center gap-4 text-sm">
             <Link href="/login" className="hover:text-soft-ember transition">
               Sign in

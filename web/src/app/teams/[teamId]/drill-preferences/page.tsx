@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { DrillPreferenceToggle } from "@/components/DrillPreferenceToggle";
 import { DrillPrefsImport } from "@/components/DrillPrefsImport";
+import { BrandMark } from "@/components/BrandMark";
 
 interface DrillCataloguePrefDto {
   drillId: string;
@@ -88,7 +89,7 @@ export default async function DrillPreferencesPage({
           >
             ← Team
           </Link>
-          <p className="font-heading text-forge-navy">ForgeRise</p>
+          <BrandMark />
         </div>
       </header>
 

@@ -12,9 +12,16 @@ const config: Config = {
       colors: {
         // Primary
         "forge-navy": "#102A43",
-        "rise-copper": "#C97B36",
+        // Brand orange — refreshed to match the forge-spark mark (hotter,
+        // more saturated than the original copper). Old token name kept so
+        // existing class usage continues to work.
+        "rise-copper": "#F26A1F",
         // Supporting
-        "soft-ember": "#E9A15B",
+        "soft-ember": "#F4A364",
+        // New: cool sky-blue accent pulled from the brand sheet's
+        // stadium-light highlights. Use sparingly for links, focus rings
+        // and secondary callouts so it never competes with the orange.
+        "forge-spark": "#4DA8DA",
         "mist-grey": "#F4F7FA",
         slate: "#486581",
         "deep-charcoal": "#1F2933",

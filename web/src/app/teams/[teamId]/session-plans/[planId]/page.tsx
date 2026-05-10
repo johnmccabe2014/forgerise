@@ -6,6 +6,7 @@ import { RegeneratePlanButton } from "@/components/RegeneratePlanButton";
 import { AdoptPlanForm } from "@/components/AdoptPlanForm";
 import { PinPlanButton } from "@/components/PinPlanButton";
 import { ArchivePlanButton } from "@/components/ArchivePlanButton";
+import { BrandMark } from "@/components/BrandMark";
 
 interface PlanBlockDto {
   block: string;
@@ -138,7 +139,7 @@ export default async function SessionPlanDetailPage({
           >
             ← Plans
           </Link>
-          <p className="font-heading text-forge-navy">ForgeRise</p>
+          <BrandMark />
         </div>
       </header>
 

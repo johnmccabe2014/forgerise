@@ -6,6 +6,7 @@ import { SelfCheckInForm } from "@/components/SelfCheckInForm";
 import { SelfIncidentForm } from "@/components/SelfIncidentForm";
 import { ReadinessBadge } from "@/components/ReadinessBadge";
 import { type ReadinessCategory } from "@/types/welfare";
+import { BrandMark } from "@/components/BrandMark";
 
 export const metadata = { title: "My profile — ForgeRise" };
 export const dynamic = "force-dynamic";
@@ -103,7 +104,7 @@ export default async function MePage() {
     <main className="min-h-screen bg-mist-grey">
       <header className="bg-white border-b border-slate/10">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center justify-between">
-          <p className="font-heading text-forge-navy">ForgeRise</p>
+          <BrandMark />
           <Link
             href="/dashboard"
             className="text-sm text-slate underline"

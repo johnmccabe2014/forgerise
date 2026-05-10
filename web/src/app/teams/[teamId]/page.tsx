@@ -9,6 +9,7 @@ import { ActivityFeed, type ActivityEvent } from "@/components/ActivityFeed";
 import { ActivityUnreadBadge } from "@/components/ActivityUnreadBadge";
 import { sessionTypeLabel } from "@/lib/sessionLabels";
 import { classifyPosition } from "@/lib/rugby";
+import { BrandMark } from "@/components/BrandMark";
 
 interface TeamDto {
   id: string;
@@ -130,7 +131,7 @@ export default async function TeamDetailPage({
           <Link href="/dashboard" className="text-sm text-slate underline">
             ← Dashboard
           </Link>
-          <p className="font-heading text-forge-navy">ForgeRise</p>
+          <BrandMark />
         </div>
       </header>
 

@@ -6,6 +6,7 @@ import {
   type AttendanceRow,
 } from "@/components/AttendanceForm";
 import { sessionTypeLabel } from "@/lib/sessionLabels";
+import { BrandMark } from "@/components/BrandMark";
 
 interface SessionDto {
   id: string;
@@ -58,7 +59,7 @@ export default async function AttendancePage({
           >
             ← Team
           </Link>
-          <p className="font-heading text-forge-navy">ForgeRise</p>
+          <BrandMark />
         </div>
       </header>
 

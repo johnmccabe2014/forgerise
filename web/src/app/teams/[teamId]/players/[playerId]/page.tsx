@@ -13,6 +13,7 @@ import {
   sessionTypeLabel,
 } from "@/lib/sessionLabels";
 import type { ReadinessCategory } from "@/types/welfare";
+import { BrandMark } from "@/components/BrandMark";
 
 interface PlayerDto {
   id: string;
@@ -172,7 +173,7 @@ export default async function PlayerProfilePage({
           >
             ← Team
           </Link>
-          <p className="font-heading text-forge-navy">ForgeRise</p>
+          <BrandMark />
         </div>
       </header>
 

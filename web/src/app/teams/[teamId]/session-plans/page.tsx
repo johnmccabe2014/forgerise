@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
 import { GeneratePlanForm } from "@/components/GeneratePlanForm";
+import { BrandMark } from "@/components/BrandMark";
 
 interface TeamDto {
   id: string;
@@ -75,7 +76,7 @@ export default async function SessionPlansListPage({
           >
             ← Team
           </Link>
-          <p className="font-heading text-forge-navy">ForgeRise</p>
+          <BrandMark />
         </div>
       </header>
 

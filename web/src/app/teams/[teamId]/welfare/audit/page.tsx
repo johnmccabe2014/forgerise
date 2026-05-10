@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { serverFetchApi } from "@/lib/serverApi";
+import { BrandMark } from "@/components/BrandMark";
 
 export const metadata = { title: "Welfare audit — ForgeRise" };
 export const dynamic = "force-dynamic";
@@ -123,7 +124,7 @@ export default async function WelfareAuditPage({
     <main className="min-h-screen bg-mist-grey">
       <header className="bg-white border-b border-slate/10">
         <div className="mx-auto max-w-4xl px-6 py-4 flex items-center justify-between">
-          <p className="font-heading text-forge-navy">ForgeRise</p>
+          <BrandMark />
           <Link
             href={`/teams/${teamId}`}
             className="text-sm text-slate underline"

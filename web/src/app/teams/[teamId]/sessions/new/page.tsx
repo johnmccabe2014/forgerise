@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SessionCreateForm } from "@/components/SessionCreateForm";
+import { BrandMark } from "@/components/BrandMark";
 
 export const metadata = { title: "New session — ForgeRise" };
 
@@ -19,7 +20,7 @@ export default async function NewSessionPage({
           >
             ← Team
           </Link>
-          <p className="font-heading text-forge-navy">ForgeRise</p>
+          <BrandMark />
         </div>
       </header>
 

@@ -12,6 +12,7 @@ import {
   READINESS_LABELS,
   type ReadinessCategory,
 } from "@/types/welfare";
+import { BrandMark } from "@/components/BrandMark";
 
 interface TeamDto {
   id: string;
@@ -141,7 +142,7 @@ export default async function WelfareDashboardPage({
           >
             ← Team
           </Link>
-          <p className="font-heading text-forge-navy">ForgeRise</p>
+          <BrandMark />
         </div>
       </header>
 
