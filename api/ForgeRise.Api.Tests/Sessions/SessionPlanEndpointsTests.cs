@@ -125,6 +125,22 @@ public class SessionPlanEndpointsTests : IClassFixture<ForgeRiseFactory>
         // Focus keyword steers at least one recommendation toward the scrum drill.
         Assert.Contains(dto.Recommendations, r => r.DrillId == "scrum-engage");
         Assert.All(dto.Recommendations, r => Assert.False(string.IsNullOrWhiteSpace(r.Rationale)));
+
+        // The plan response must be decorated with the static drill catalogue's
+        // coaching content so the run-session UI can render rich cards without
+        // a second round-trip. Old plans without it would still work because
+        // the new fields are optional; the contract here is for *new* plans.
+        var scrum = dto.Recommendations.First(r => r.DrillId == "scrum-engage");
+        Assert.False(string.IsNullOrWhiteSpace(scrum.WhatItMeans));
+        Assert.NotNull(scrum.CoachingCues);
+        Assert.NotEmpty(scrum.CoachingCues!);
+        Assert.Equal("scrum", scrum.DiagramKey);
+
+        // Each block should carry a glossary lookup so jargon like "RAMP" or
+        // "small-sided game" is unpacked inline for new coaches.
+        Assert.All(dto.Blocks, b => Assert.NotNull(b.Glossary));
+        var warmup = dto.Blocks.First(b => b.Block == "warmup");
+        Assert.Contains(warmup.Glossary!, g => g.Term == "RAMP");
     }
 
     [Fact]

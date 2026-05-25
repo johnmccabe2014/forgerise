@@ -67,6 +67,7 @@ builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ILoginLockout, LoginLockout>();
 builder.Services.AddSingleton<ForgeRise.Api.Sessions.ISessionPlanGenerator, ForgeRise.Api.Sessions.HeuristicSessionPlanGenerator>();
+builder.Services.AddScoped<ForgeRise.Api.Sessions.DemoSeeder>();
 
 // --- Feature flags ---
 builder.Services.Configure<VideoFeatureOptions>(
@@ -219,6 +220,27 @@ if (!app.Environment.IsEnvironment("Testing"))
     {
         migLogger.LogError(ex, "EF Core migration failed at startup");
         throw;
+    }
+}
+
+// --- Demo seed: opt-in via `dotnet run -- seed-demo` or Demo:SeedOnStartup=true.
+// Refused in Production unconditionally — the seeder plants a deterministic
+// coach account with a known password, which has no business in prod.
+var seedCli = args.Length > 0 && args[0].Equals("seed-demo", StringComparison.OrdinalIgnoreCase);
+var seedConfig = app.Configuration.GetValue<bool>("Demo:SeedOnStartup");
+if (seedCli || seedConfig)
+{
+    if (app.Environment.IsProduction())
+    {
+        throw new InvalidOperationException(
+            "DemoSeeder refused: cannot run in Production environment.");
+    }
+    using var scope = app.Services.CreateScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<ForgeRise.Api.Sessions.DemoSeeder>();
+    await seeder.SeedAsync();
+    if (seedCli)
+    {
+        return; // CLI mode: seed then exit instead of starting the web host.
     }
 }
 

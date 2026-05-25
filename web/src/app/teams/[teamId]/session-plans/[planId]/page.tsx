@@ -7,6 +7,13 @@ import { AdoptPlanForm } from "@/components/AdoptPlanForm";
 import { PinPlanButton } from "@/components/PinPlanButton";
 import { ArchivePlanButton } from "@/components/ArchivePlanButton";
 import { BrandMark } from "@/components/BrandMark";
+import { GlossaryChipList } from "@/components/GlossaryTerm";
+import { DrillDiagram } from "@/components/drills/DrillDiagram";
+
+interface GlossaryDto {
+  term: string;
+  plain: string;
+}
 
 interface PlanBlockDto {
   block: string;
@@ -14,6 +21,7 @@ interface PlanBlockDto {
   durationMinutes: number;
   intent: string;
   intensity: string;
+  glossary?: GlossaryDto[];
 }
 
 interface ReadinessRow {
@@ -28,6 +36,12 @@ interface RecommendationDto {
   durationMinutes: number;
   rationale: string;
   tags: string[];
+  longDescription?: string | null;
+  coachingCues?: string[] | null;
+  equipment?: string[] | null;
+  whatItMeans?: string | null;
+  diagramKey?: string | null;
+  glossary?: GlossaryDto[] | null;
 }
 
 interface SessionPlanDto {
@@ -264,6 +278,7 @@ export default async function SessionPlanDetailPage({
                     {BLOCK_LABEL[b.block] ?? b.block}
                   </p>
                   <p className="mt-2 text-sm text-deep-charcoal">{b.intent}</p>
+                  <GlossaryChipList glossary={b.glossary} />
                 </li>
               ))}
             </ol>
@@ -321,11 +336,48 @@ export default async function SessionPlanDetailPage({
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-deep-charcoal">
-                    {r.description}
+                    {r.longDescription ?? r.description}
                   </p>
+                  {r.whatItMeans && (
+                    <p className="mt-2 rounded-card bg-mist-grey p-2 text-xs text-deep-charcoal">
+                      <span className="font-medium text-forge-navy">
+                        In plain English: 
+                      </span>
+                      {r.whatItMeans}
+                    </p>
+                  )}
+                  {r.diagramKey && (
+                    <div className="mt-3">
+                      <DrillDiagram
+                        diagramKey={r.diagramKey}
+                        label={`Layout for ${r.title}`}
+                      />
+                    </div>
+                  )}
+                  {r.coachingCues && r.coachingCues.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-[11px] uppercase tracking-widest text-slate">
+                        Call out
+                      </p>
+                      <ul className="mt-1 list-disc list-inside text-sm text-deep-charcoal space-y-0.5">
+                        {r.coachingCues.map((c) => (
+                          <li key={c}>{c}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {r.equipment && r.equipment.length > 0 && (
+                    <p className="mt-2 text-xs text-slate">
+                      <span className="font-medium text-deep-charcoal">
+                        Kit: 
+                      </span>
+                      {r.equipment.join(", ")}
+                    </p>
+                  )}
                   <p className="mt-2 text-xs italic text-slate">
                     Why: {r.rationale}
                   </p>
+                  <GlossaryChipList glossary={r.glossary ?? undefined} />
                   {r.tags.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {r.tags.map((t) => (

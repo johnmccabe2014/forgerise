@@ -44,8 +44,46 @@ public sealed class SessionPlansController : ControllerBase
                        ?? new List<SessionPlanReadinessRow>();
         var recs = JsonSerializer.Deserialize<List<SessionPlanRecommendationDto>>(plan.RecommendationsJson, JsonOpts)
                    ?? new List<SessionPlanRecommendationDto>();
+
+        // Decorate blocks with a glossary lookup over title + intent so coaches
+        // can tap "RAMP" / "SSG" / "walk-through" and get a plain-English unpack
+        // without leaving the screen.
+        var enrichedBlocks = blocks
+            .Select(b => b with
+            {
+                Glossary = GlossaryCatalogue.MatchIn(b.Title, b.Intent)
+                    .Select(g => new GlossaryTermDto(g.Term, g.Plain))
+                    .ToList(),
+            })
+            .ToList();
+
+        // Decorate recommendations with the static catalogue's coaching cues,
+        // equipment list, diagram key and long-form description. Persisting
+        // these would freeze the content at generation time; computing on-read
+        // means catalogue improvements are picked up by old plans too.
+        var enrichedRecs = recs
+            .Select(r =>
+            {
+                var drill = DrillCatalogue.TryFind(r.DrillId);
+                if (drill is null) return r;
+                var glossary = GlossaryCatalogue
+                    .MatchIn(drill.Title, drill.Description, drill.LongDescription, drill.WhatItMeans)
+                    .Select(g => new GlossaryTermDto(g.Term, g.Plain))
+                    .ToList();
+                return r with
+                {
+                    LongDescription = drill.LongDescription,
+                    CoachingCues = drill.CoachingCues,
+                    Equipment = drill.Equipment,
+                    WhatItMeans = drill.WhatItMeans,
+                    DiagramKey = drill.DiagramKey,
+                    Glossary = glossary,
+                };
+            })
+            .ToList();
+
         return new SessionPlanDto(plan.Id, plan.TeamId, plan.GeneratedAt, plan.BasedOnSessionId,
-            plan.Focus, plan.Summary, blocks, snapshot, recs, plan.RecentSelfIncidentCount,
+            plan.Focus, plan.Summary, enrichedBlocks, snapshot, enrichedRecs, plan.RecentSelfIncidentCount,
             plan.AdoptedAt, plan.AdoptedSessionId, plan.PinnedAt, plan.ArchivedAt);
     }
 

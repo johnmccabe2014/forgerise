@@ -57,7 +57,21 @@ public sealed class GenerateSessionPlanRequest
 
 public sealed record SessionPlanReadinessRow(Guid PlayerId, SafeCategory Category);
 
-public sealed record SessionPlanBlockDto(string Block, string Title, int DurationMinutes, string Intent, string Intensity);
+/// <summary>
+/// A plain-English explanation of jargon ("RAMP", "SSG", "ruck", ...) attached
+/// to a plan block or drill so a brand-new coach is never staring at shorthand
+/// they don't recognise. Always optional on the wire — old persisted plans
+/// won't have it and the client must tolerate an empty list.
+/// </summary>
+public sealed record GlossaryTermDto(string Term, string Plain);
+
+public sealed record SessionPlanBlockDto(
+    string Block,
+    string Title,
+    int DurationMinutes,
+    string Intent,
+    string Intensity,
+    IReadOnlyList<GlossaryTermDto>? Glossary = null);
 
 public sealed record SessionPlanRecommendationDto(
     string DrillId,
@@ -65,7 +79,34 @@ public sealed record SessionPlanRecommendationDto(
     string Description,
     int DurationMinutes,
     string Rationale,
-    IReadOnlyList<string> Tags);
+    IReadOnlyList<string> Tags,
+    // Enriched fields are computed on-read from the static catalogue, never
+    // persisted in RecommendationsJson — that way swapping coaching content
+    // is instant and old plans keep working.
+    string? LongDescription = null,
+    IReadOnlyList<string>? CoachingCues = null,
+    IReadOnlyList<string>? Equipment = null,
+    string? WhatItMeans = null,
+    string? DiagramKey = null,
+    IReadOnlyList<GlossaryTermDto>? Glossary = null);
+
+/// <summary>
+/// Public drill-catalogue DTO returned by GET /drills and GET /drills/{id}.
+/// Used by the run-session UI to render the coaching card and diagram for
+/// each drill the coach is about to take the team through.
+/// </summary>
+public sealed record DrillDto(
+    string Id,
+    string Title,
+    string Description,
+    int DurationMinutes,
+    IReadOnlyList<string> Tags,
+    string LongDescription,
+    IReadOnlyList<string> CoachingCues,
+    IReadOnlyList<string> Equipment,
+    string WhatItMeans,
+    string DiagramKey,
+    IReadOnlyList<GlossaryTermDto> Glossary);
 
 public sealed record SessionPlanDto(
     Guid Id,
