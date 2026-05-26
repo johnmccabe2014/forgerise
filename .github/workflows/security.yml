@@ -98,14 +98,14 @@ jobs:
         uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
         with:
           dotnet-version: 9.0.x
-      - uses: github/codeql-action/init@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.27.0
+      - uses: github/codeql-action/init@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v3.27.0
         with:
           languages: ${{ matrix.language }}
       - name: Build (csharp only — CodeQL needs compilation)
         if: matrix.language == 'csharp'
         working-directory: api
         run: dotnet build ForgeRise.sln --configuration Release
-      - uses: github/codeql-action/analyze@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.27.0
+      - uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v3.27.0
         with:
           category: "/language:${{ matrix.language }}"
 
